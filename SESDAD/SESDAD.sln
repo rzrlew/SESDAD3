@@ -5,7 +5,10 @@ VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SESDAD", "SESDAD\SESDAD.csproj", "{CD145C7C-CD7E-4C82-B1A1-22D4F3702535}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Broker", "..\..\..\..\Desktop\DAD\proj\SESDAD\Broker\Broker.csproj", "{F61833EC-E3E3-4D70-A8BE-CF5ADE10D9D8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Broker", "Broker\Broker.csproj", "{0B93FE7D-91FD-45F4-A879-D3408198D940}"
+	ProjectSection(ProjectDependencies) = postProject
+		{CD145C7C-CD7E-4C82-B1A1-22D4F3702535} = {CD145C7C-CD7E-4C82-B1A1-22D4F3702535}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,10 +20,10 @@ Global
 		{CD145C7C-CD7E-4C82-B1A1-22D4F3702535}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CD145C7C-CD7E-4C82-B1A1-22D4F3702535}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CD145C7C-CD7E-4C82-B1A1-22D4F3702535}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F61833EC-E3E3-4D70-A8BE-CF5ADE10D9D8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F61833EC-E3E3-4D70-A8BE-CF5ADE10D9D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F61833EC-E3E3-4D70-A8BE-CF5ADE10D9D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F61833EC-E3E3-4D70-A8BE-CF5ADE10D9D8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0B93FE7D-91FD-45F4-A879-D3408198D940}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0B93FE7D-91FD-45F4-A879-D3408198D940}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B93FE7D-91FD-45F4-A879-D3408198D940}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0B93FE7D-91FD-45F4-A879-D3408198D940}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

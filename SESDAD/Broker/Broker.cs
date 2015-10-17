@@ -12,18 +12,35 @@ namespace SESDADBroker
 {
     public class Broker
     {
-        TcpChannel channel;
+        public TcpChannel channel;
         RemoteBroker remoteBroker;
         Queue<Event> eventQueue;
         RemoteBroker parentBroker = null;
-        List<RemoteBroker> childBrokers;
+        List<RemoteBroker> childBrokers = new List<RemoteBroker>();
         string name;
 
-        public Broker(string name)
+        public static void Main(string[] args)
+        {
+            TcpChannel channel = new TcpChannel();
+            ChannelServices.RegisterChannel(channel, true);
+            Broker bro = new Broker();
+            PuppetMasterRemote remotePuppetMaster = (PuppetMasterRemote) Activator.GetObject(typeof(PuppetMasterRemote), "tcp://localhost:9000/puppetmaster");
+            int portNum = remotePuppetMaster.GetNextPortNumber();
+            bro.name = remotePuppetMaster.Register("tcp://localhost:" + portNum.ToString() + "/broker");
+            ChannelServices.UnregisterChannel(channel);
+            channel = new TcpChannel(portNum);
+            ChannelServices.RegisterChannel(channel, true);
+            Console.WriteLine("Name: " + bro.name + Environment.NewLine +"Running on port: " + portNum.ToString());
+            bro.channel = channel;
+            Console.WriteLine("press key to exit!!!");
+            Console.ReadLine();
+            bro.Flood(new Event("lololollol", "hahahaha"));
+            Console.ReadLine();
+        }
+
+        public Broker()
         {
             Console.WriteLine("---Starting Broker---");
-            channel = new TcpChannel();
-            ChannelServices.RegisterChannel(channel, true);
             Console.WriteLine("Creating remote broker...");
             remoteBroker = new RemoteBroker();
             remoteBroker.floodEvents += new NotifyEvent(Flood);
@@ -32,14 +49,8 @@ namespace SESDADBroker
             remoteBroker.setChildrenEvent += new ConfigurationEvent(SetChildren);
             eventQueue = new Queue<Event>();
             Console.WriteLine("Setup Complete! Registering with PuppetMaster!");
-
-            RemotingServices.Marshal(remoteBroker, name);
+            RemotingServices.Marshal(remoteBroker, "broker");
             Console.WriteLine("Broker is listening...");
-        }
-
-        public void RegisterOnPuppetMaster()
-        {
-            Activator.GetObject(typeof(PuppetMasterRemote), "tcp://localhost:");
         }
 
         public bool isRoot()

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading;
 using System.Runtime.Remoting;
 using System.Runtime.Remoting.Channels;
 using System.Runtime.Remoting.Channels.Tcp;
@@ -12,10 +13,11 @@ using System.Runtime.Remoting.Channels.Tcp;
 namespace SESDAD
 {
     public delegate void PuppetMasterFormEvent(string msg);
-    class PuppetMaster
+    public class PuppetMaster
     {
         Tree SESDADTree;
         PuppetMasterForm form;
+        IDictionary<string, string> brokerHash = new Dictionary<string, string>();
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
@@ -37,12 +39,15 @@ namespace SESDAD
             PuppetMasterRemote remotePM = new PuppetMasterRemote();
             remotePM.brokerSignIn += new PuppetMasterEvent(RegisterBroker);
             RemotingServices.Marshal(remotePM, "puppetmaster");
+            new Thread(new ThreadStart(RegisteringLoop)).Start();
         }
 
-        void RegisterBroker(PuppetMasterEventArgs args)
+        string RegisterBroker(PuppetMasterEventArgs args)
         {
             ShowMessage("Broker at \"" + args.address + "\" signing in!");
-            SESDADTree.CreateNextNode();
+            string brokerName = "broker" + brokerHash.Count.ToString();
+            brokerHash.Add(brokerName , args.address);
+            return brokerName;
         }
 
         void ShowMessage(string msg)
@@ -52,7 +57,36 @@ namespace SESDAD
             form.Invoke(new PuppetMasterFormEvent(form.appendToOutputWindow), arguments);
         }
 
+        public void SetBrokerParent(string brokerAddress, string parentAddress)
+        {
+            RemoteBroker broker = (RemoteBroker) Activator.GetObject(typeof(RemoteBroker), brokerAddress);
+            broker.SetParent(parentAddress);
+        }
 
+        public void SetBrokerChildren(string brokerAddress, string[] childrenAddresses)
+        {
+            RemoteBroker broker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), brokerAddress);
+            broker.SetChildren(childrenAddresses.ToList<string>());
+        }
+
+        private void RegisteringLoop()
+        {
+            ShowMessage("Running Registering Loop");
+            while(true)
+            {
+                if(brokerHash.Count == 2)
+                {
+                    ShowMessage("Setting broker connections!");
+                    RemoteBroker broker = (RemoteBroker) Activator.GetObject(typeof(RemoteBroker), brokerHash["broker0"]);
+                    List<string> addressList = new List<string>();
+                    addressList.Add(brokerHash["broker1"]);
+                    broker.SetChildren(addressList);
+                    broker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), brokerHash["broker1"]);
+                    broker.SetParent(brokerHash["broker0"]);
+                    break;
+                }
+            }
+        }
     }
 
     public class Tree

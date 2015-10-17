@@ -38,14 +38,14 @@
             this.outputWindow.Location = new System.Drawing.Point(5, 5);
             this.outputWindow.Multiline = true;
             this.outputWindow.Name = "outputWindow";
-            this.outputWindow.Size = new System.Drawing.Size(137, 253);
+            this.outputWindow.Size = new System.Drawing.Size(267, 612);
             this.outputWindow.TabIndex = 0;
             // 
             // PuppetMasterForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(284, 261);
+            this.ClientSize = new System.Drawing.Size(659, 619);
             this.Controls.Add(this.outputWindow);
             this.Name = "PuppetMasterForm";
             this.Text = "PuppetMasterForm";

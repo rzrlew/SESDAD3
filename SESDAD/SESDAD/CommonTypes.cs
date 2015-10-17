@@ -8,7 +8,7 @@ namespace SESDAD
 {
     public delegate void NotifyEvent(Event e);
     public delegate void ConfigurationEvent(List<string> adresses);
-    public delegate void PuppetMasterEvent(PuppetMasterEventArgs args);
+    public delegate string PuppetMasterEvent(PuppetMasterEventArgs args);
     public enum PMEType { Register, Notify }
     public class RemoteBroker : MarshalByRefObject
     {
@@ -58,10 +58,17 @@ namespace SESDAD
     public class PuppetMasterRemote : MarshalByRefObject
     {
         public PuppetMasterEvent brokerSignIn;
-        public void Register(string address)
+        private static int startPort = 9000;
+        private int portCounter = 0;
+        public string Register(string address)
         {
             PuppetMasterEventArgs args = new PuppetMasterEventArgs(address);
-            brokerSignIn(args);
+            return brokerSignIn(args);
+        }
+
+        public int GetNextPortNumber()
+        {
+            return ++portCounter + startPort;
         } 
     }
 

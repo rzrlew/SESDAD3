@@ -17,7 +17,8 @@ namespace SESDAD
         public NotifyEvent sendToRoot;
         public ConfigurationEvent setParentEvent;
         public ConfigurationEvent setChildrenEvent;
-        Queue<Event> floodList;
+        public string name;
+        public Queue<Event> floodList;
         public RemoteBroker()
         {
             floodList = new Queue<Event>();
@@ -35,11 +36,6 @@ namespace SESDAD
         public void Flood(Event e)
         {
             floodEvents(e);
-        }
-
-        public void SendToRoot(Event e)
-        {
-            sendToRoot(e);
         }
 
         public void SetParent(string address)
@@ -106,12 +102,18 @@ namespace SESDAD
     [Serializable]
     public class Event
     {
-        protected string topic;
-        protected string eventMessage;
-        public Event(string message, string topic)
+        public string topic;
+        public string eventMessage;
+        public string lastHop;
+        public Event(string message, string topic, string lastHop)
         {
             eventMessage = message;
             this.topic = topic;
+            this.lastHop = lastHop;
+        }
+        public string Message()
+        {
+            return "Topic: " + topic + " || Message: " + eventMessage;
         }
     }
 }

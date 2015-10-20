@@ -9,7 +9,7 @@ namespace SESDAD
     public delegate void NotifyEvent(Event e);
     public delegate void ConfigurationEvent(List<string> addresses);
     public delegate SESDADConfig SESDADconfiguration(string SiteName);
-    public delegate SESDADConfig SESDADBrokerConfiguration();
+    public delegate SESDADBrokerConfig SESDADBrokerConfiguration();
     public delegate string PuppetMasterEvent(PuppetMasterEventArgs args);
     public enum PMEType { Register, Notify, ConfigReq }
     public class RemoteBroker : MarshalByRefObject
@@ -48,7 +48,7 @@ namespace SESDAD
     public class RemotePuppetSlave : MarshalByRefObject
     {
         public SESDADBrokerConfiguration OnGetConfiguration;
-        public SESDADConfig GetConfiguration()
+        public SESDADBrokerConfig GetConfiguration()
         {
             return OnGetConfiguration();
         }
@@ -77,6 +77,7 @@ namespace SESDAD
         } 
 
     }
+    [Serializable]
     public class SESDADProcessConfig
     {
         public string ProcessName;
@@ -84,14 +85,24 @@ namespace SESDAD
         public string ProcessAddress;
     }
 
+    [Serializable]
+    public class SESDADBrokerConfig
+    {
+        public string brokerName;
+        public string brokerAddress;
+        public string parentBrokerAddress;
+        public List<string> childrenBrokerAddresses;
+    }
+
+    [Serializable]
     public class SESDADConfig
     {
         string siteName;
-        List<string> childrenSiteNames;       
-        List<SESDADProcessConfig> processConfigList;
+        List<string> childrenSiteNames = new List<string>();       
+        List<SESDADProcessConfig> processConfigList = new List<SESDADProcessConfig>();
         string parentSiteName;
         string parentBrokerAddress;
-        List<string> childBrokersAddresses;
+        List<string> childBrokersAddresses = new List<string>();
        
         public string ParentBrokerAddress
         {
@@ -138,6 +149,7 @@ namespace SESDAD
 
     }
 
+    [Serializable]
     public class PuppetMasterEventArgs
     {
         public PMEType type;

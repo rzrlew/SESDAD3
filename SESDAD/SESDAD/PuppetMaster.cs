@@ -9,6 +9,7 @@ using System.Threading;
 using System.Runtime.Remoting;
 using System.Runtime.Remoting.Channels;
 using System.Runtime.Remoting.Channels.Tcp;
+using System.Diagnostics;
 
 namespace SESDAD
 {
@@ -16,10 +17,13 @@ namespace SESDAD
     
     public class PuppetMaster
     {
+        ObjRef remoteMasterRef;
         Tree SESDADTree;
         PuppetMasterForm form;
         IDictionary<string, string> brokerHash = new Dictionary<string, string>();
         List<SESDADConfig> configList = new List<SESDADConfig>();
+        private int slavePortCounter = 9000;
+
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
@@ -29,19 +33,36 @@ namespace SESDAD
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             PuppetMaster puppetMaster = new PuppetMaster();
+            puppetMaster.BootStrapSystem();
             Application.Run(puppetMaster.form);
         }
 
         public PuppetMaster()
         {
             form = new PuppetMasterForm();
+            form.OnBajorasPrint += new PuppetMasterFormEvent(ShowRemoteMasterRef);
             SESDADTree = new Tree();
-            TcpChannel channel = new TcpChannel(9000);
+            TcpChannel channel = new TcpChannel(slavePortCounter);
             ChannelServices.RegisterChannel(channel, true);
             PuppetMasterRemote remotePM = new PuppetMasterRemote();
             remotePM.brokerSignIn += new PuppetMasterEvent(RegisterBroker);
+            remotePM.configRequest += new SESDADconfiguration(searchConfigList);
+            ///RemotingConfiguration.RegisterWellKnownServiceType(typeof(PuppetMasterRemote), "puppetmaster", WellKnownObjectMode.Singleton);
             RemotingServices.Marshal(remotePM, "puppetmaster");
-            new Thread(new ThreadStart(RegisteringLoop)).Start();
+            parseConfigFile("c:/Users/Luis/Desktop/DAD/proj/test-config.txt");
+        }
+
+        private void BootStrapSystem()
+        {
+            foreach(SESDADConfig slaveConfig in configList)
+            {
+                Process.Start(TestConstants.puppetSlavePath, "tcp://localhost:9000/puppetmaster " + slaveConfig.SiteName + " " +  ++slavePortCounter);
+            }
+        }
+
+        private void ShowRemoteMasterRef(string bajoras)
+        {
+            ShowMessage(remoteMasterRef.URI);
         }
 
         private SESDADConfig searchConfigList(string SiteName)
@@ -63,7 +84,7 @@ namespace SESDAD
             while (true)
             {
                 string line = file.ReadLine();
-                if (line.Count() == 0) { break; }
+                if (line == null) { break; }
                 string[] args = line.Split(' ');
                 switch (args[0])
                 {
@@ -145,24 +166,6 @@ namespace SESDAD
             broker.SetChildren(childrenAddresses.ToList<string>());
         }
 
-        private void RegisteringLoop()
-        {
-            ShowMessage("Running Registering Loop");
-            while(true)
-            {
-                if(brokerHash.Count == 2)
-                {
-                    ShowMessage("Setting broker connections!");
-                    RemoteBroker broker = (RemoteBroker) Activator.GetObject(typeof(RemoteBroker), brokerHash["broker0"]);
-                    List<string> addressList = new List<string>();
-                    addressList.Add(brokerHash["broker1"]);
-                    broker.SetChildren(addressList);
-                    broker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), brokerHash["broker1"]);
-                    broker.SetParent(brokerHash["broker0"]);
-                    break;
-                }
-            }
-        }
     }
 
     public class Tree

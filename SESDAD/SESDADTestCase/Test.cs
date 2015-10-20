@@ -13,8 +13,6 @@ namespace SESDADTestCase
         static void Main(string[] args)
         {
             Process.Start("C:/Users/Luis/Source/Repos/SESDAD/SESDAD/SESDAD/bin/Debug/SESDAD.exe");
-            Process.Start("C:/Users/Luis/Source/Repos/SESDAD/SESDAD/Broker/bin/Debug/Broker.exe");
-            Process.Start("C:/Users/Luis/Source/Repos/SESDAD/SESDAD/Broker/bin/Debug/Broker.exe");
         }
     }
 }

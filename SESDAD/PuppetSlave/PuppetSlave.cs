@@ -13,6 +13,7 @@ namespace SESDAD
     class PuppetSlave
     {
         TcpChannel channel;
+        int port;
         SESDADConfig configuration;
         PuppetMasterRemote remotePuppetMaster;
         RemotePuppetSlave remotePuppetSlave;
@@ -22,42 +23,57 @@ namespace SESDAD
             if (args.Count() == 3)
             {
                 Console.WriteLine("---Starting Slave---");
-                PuppetSlave pptSlave = new PuppetSlave(args[1], args[2]);
+                PuppetSlave pptSlave = new PuppetSlave(args[0], args[1], args[2]);
             }
             else
             {
                 throw new NotImplementedException();
             }
+            Console.ReadLine();
         }
 
-        public PuppetSlave(string puppetMasterAddress, string siteName)
+        public PuppetSlave(string puppetMasterAddress, string siteName, string portString)
         {
             this.siteName = siteName;
             remotePuppetSlave = new RemotePuppetSlave();
             remotePuppetSlave.OnGetConfiguration += new SESDADBrokerConfiguration(GetConfiguration);
-            channel = new TcpChannel();
+            port = int.Parse(portString);
+            channel = new TcpChannel(port);
             ChannelServices.RegisterChannel(channel, true);
-            Console.WriteLine("Slave created Tcp Channel on port: " + new Uri(((IChannelDataStore)channel.ChannelData).ChannelUris.Single()).Port);
+            Console.WriteLine("Slave created Tcp Channel!");
+            Console.WriteLine("Contacting PuppetMaster on: " + puppetMasterAddress);
             remotePuppetMaster = (PuppetMasterRemote)Activator.GetObject(typeof(PuppetMasterRemote), puppetMasterAddress);
+            SESDADConfig config_bajoras = remotePuppetMaster.GetConfiguration(siteName);
+            Console.WriteLine("Config-Bajoras: " + config_bajoras.SiteName);
             StartupConfiguration(remotePuppetMaster.GetConfiguration(siteName));
         }
 
-        private SESDADConfig GetConfiguration()
+        private SESDADBrokerConfig GetConfiguration()
         {
-            return configuration;
+            SESDADBrokerConfig brokerConf = new SESDADBrokerConfig();
+            foreach(SESDADProcessConfig config in configuration.ProcessConfigList)
+            {
+                if(config.ProcessType == "broker")
+                {
+                    brokerConf.brokerAddress = config.ProcessAddress;
+                    brokerConf.brokerName = config.ProcessName;
+                }
+            }
+            brokerConf.childrenBrokerAddresses = configuration.ChildBrokersAddresses;
+            return brokerConf;
         }
 
         private void StartupConfiguration(SESDADConfig config)
         {
             configuration = config;
             RemotingServices.Marshal(remotePuppetSlave, config.SiteName + "slave");
-            Console.WriteLine("Remote Slave registered in address: " + ((IChannelDataStore)channel.ChannelData).ChannelUris.Single());
-            foreach (string processString in configuration.ProcessList)
+            foreach (SESDADProcessConfig processConf in configuration.ProcessConfigList)
             {
-                switch (processString)
+                switch (processConf.ProcessType)
                 {
                     case "broker":
-                        Process.Start(TestConstants.brokerPath + " " + config.SiteBrokerAddress);
+                        Console.WriteLine("Starting broker process!");
+                        Process.Start(TestConstants.brokerPath, "tcp://localhost:" + port + "/" + siteName + "slave");
                         break;
                 }
             }

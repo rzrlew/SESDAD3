@@ -13,6 +13,7 @@ namespace SESDAD
     public partial class PuppetMasterForm : Form
     {
         Tree SESDADTree;
+        public PuppetMasterFormEvent OnBajorasPrint;
         public PuppetMasterForm()
         {
             InitializeComponent();
@@ -22,6 +23,11 @@ namespace SESDAD
         public void appendToOutputWindow(string message)
         {
             outputWindow.AppendText(message);
+        }
+
+        private void bajorasPrintButton_Click(object sender, EventArgs e)
+        {
+            OnBajorasPrint("bajoras");
         }
     }
 }

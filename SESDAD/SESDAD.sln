@@ -12,6 +12,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Broker", "Broker\Broker.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SESDADTestCase", "SESDADTestCase\SESDADTestCase.csproj", "{A7FBBC1E-5A0C-421E-86E7-D7193EF5EC01}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PuppetSlave", "PuppetSlave\PuppetSlave.csproj", "{F10DA3A2-DFB8-4C47-82EC-31FEC595D6AD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,6 +32,10 @@ Global
 		{A7FBBC1E-5A0C-421E-86E7-D7193EF5EC01}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A7FBBC1E-5A0C-421E-86E7-D7193EF5EC01}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A7FBBC1E-5A0C-421E-86E7-D7193EF5EC01}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F10DA3A2-DFB8-4C47-82EC-31FEC595D6AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F10DA3A2-DFB8-4C47-82EC-31FEC595D6AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F10DA3A2-DFB8-4C47-82EC-31FEC595D6AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F10DA3A2-DFB8-4C47-82EC-31FEC595D6AD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

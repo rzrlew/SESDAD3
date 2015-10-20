@@ -22,7 +22,7 @@ namespace SESDAD
         /// The main entry point for the application.
         /// </summary>
         [STAThread]
-        static void Main()
+        public static void Main()
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
@@ -100,13 +100,21 @@ namespace SESDAD
 
     class Site
     {
-        public Site parent;
-        public List<Site> children;
-        public string name;
-        public string address;
-        public string parentName;
-        public List<string> childrenNames;
-        public List<string> processNames;
+        List<Site> children;
+        Site parent;
+        public SESDADConfig siteConfig;
+
+        public List<Site> Children
+        {
+            get{return children;}
+            set{children = value;}
+        }
+
+        public Site Parent
+        {
+            get{return parent;}
+            set{parent = value;}
+        }
     }
 
     public class ConfigurationParser
@@ -132,7 +140,7 @@ namespace SESDAD
             char[] siteName = new char[10];
             line.CopyTo(line.LastIndexOf("Site") + 2, siteName, 0, 5);
             Site site = new Site();
-            site.name = siteName.ToString();
+            site.siteConfig.SiteName = siteName.ToString();
 
             return site;
         }

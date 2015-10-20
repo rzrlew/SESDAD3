@@ -21,11 +21,8 @@ namespace SESDADBroker
 
         public string Name
         {
-            set
-            {
-                name = value;
-                remoteBroker.name = name;
-            }
+            set{name = value;
+                remoteBroker.name = name;}
         }
 
         public static void Main(string[] args)
@@ -42,16 +39,13 @@ namespace SESDADBroker
             ChannelServices.RegisterChannel(channel, true);
             Console.WriteLine("Name: " + bro.name + Environment.NewLine +"Running on port: " + portNum.ToString());
             bro.channel = channel;
-            Console.WriteLine("press key to exit!!!");
+            Console.WriteLine("press key to flood...");
             Console.ReadLine();
             bro.Flood(new Event("lololollol", "hahahaha", bro.name));
             Console.WriteLine("Show queue: press <any> key!");
             Console.ReadLine();
-            foreach(RemoteBroker child in bro.childBrokers)
-            {
-                Event e = child.floodList.Dequeue();
-                Console.WriteLine(bro.name + "|| Event: " + e.Message());
-            }
+            Event e = bro.remoteBroker.floodList.Dequeue();
+            Console.WriteLine(e.Message());
             Console.ReadLine();
         }
 
@@ -91,24 +85,23 @@ namespace SESDADBroker
 
         public void Flood(Event e)
         {
+            string lastHopName = e.lastHop;
             Console.WriteLine("Flooding event: " + e.Message() + " from " + e.lastHop + " to all children!");
-            if (parentBroker != null && parentBroker.name != e.lastHop)
-            {
+            e.lastHop = name;
+            remoteBroker.floodList.Enqueue(e);
+            if (parentBroker != null && parentBroker.name != lastHopName)            {
+
                 Console.WriteLine("Sending event to " + parentBroker.name);
-                Event eventForParent = new Event(string.Copy(e.eventMessage), string.Copy(e.topic), string.Copy(name));
-                parentBroker.Flood(eventForParent);
+                parentBroker.Flood(e);
             }
             foreach (RemoteBroker child in childBrokers)
             {
-                if (child.name != e.lastHop)
+                if (child.name != lastHopName)
                 {
                     Console.WriteLine("Sending event to " + child.name);
-                    Event eventForChild = new Event(string.Copy(e.eventMessage), string.Copy(e.topic), string.Copy(name));
-                    child.Flood(eventForChild);
+                    child.Flood(e);
                 }
             }
-
-
         }
     }
 }

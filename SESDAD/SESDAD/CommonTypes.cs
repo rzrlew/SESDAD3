@@ -7,9 +7,10 @@ using System.Threading.Tasks;
 namespace SESDAD
 {
     public delegate void NotifyEvent(Event e);
-    public delegate void ConfigurationEvent(List<string> adresses);
+    public delegate void ConfigurationEvent(List<string> addresses);
+    public delegate SESDADConfig SESDADconfiguration(string SiteName);
     public delegate string PuppetMasterEvent(PuppetMasterEventArgs args);
-    public enum PMEType { Register, Notify }
+    public enum PMEType { Register, Notify, ConfigReq }
     public class RemoteBroker : MarshalByRefObject
     {
 
@@ -19,18 +20,10 @@ namespace SESDAD
         public ConfigurationEvent setChildrenEvent;
         public string name;
         public Queue<Event> floodList;
+
         public RemoteBroker()
         {
             floodList = new Queue<Event>();
-        }
-        public void Publish(Event e)
-        {
-
-        }
-
-        public void Subscribe(string topic)
-        {
-
         }
 
         public void Flood(Event e)
@@ -51,9 +44,15 @@ namespace SESDAD
         }
     }
 
+    public class RemotePuppetSlave : MarshalByRefObject
+    {
+
+    }
+
     public class PuppetMasterRemote : MarshalByRefObject
     {
         public PuppetMasterEvent brokerSignIn;
+        public SESDADconfiguration configRequest;
         private static int startPort = 9000;
         private int portCounter = 0;
         public string Register(string address)
@@ -65,12 +64,58 @@ namespace SESDAD
         public int GetNextPortNumber()
         {
             return ++portCounter + startPort;
+        }
+        
+        public SESDADConfig GetConfiguration(string siteName)
+        {
+            return configRequest(siteName);
         } 
+
+    }
+
+    public class SESDADConfig
+    {
+        string siteName;
+        string[] processList;
+        string parentBrokerAddress;
+        string[] childBrokersAddresses;
+        public string[] ProcessList
+        {
+            get{return processList;}
+            set{processList = value;}
+        }
+
+        public string ParentBrokerAddress
+        {
+            get{return parentBrokerAddress;}
+            set{parentBrokerAddress = value;}
+        }
+
+        public string[] ChildBrokersAddresses
+        {
+            get{return childBrokersAddresses;}
+            set{childBrokersAddresses = value;}
+        }
+
+        public string SiteName
+        {
+            get {return siteName;}
+
+            set {siteName = value;}
+        }
+
+        public SESDADConfig(string siteName)
+        {
+            this.SiteName = siteName;
+        }
+
+
     }
 
     public class PuppetMasterEventArgs
     {
         public PMEType type;
+        public string siteName;
         public string address;
         public Event ev;
 
@@ -78,6 +123,7 @@ namespace SESDAD
         {
             this.type = type;
         }
+
         public PuppetMasterEventArgs(string address)
         {
             this.type = PMEType.Register;

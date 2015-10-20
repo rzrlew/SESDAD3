@@ -9,6 +9,7 @@ namespace SESDAD
     public delegate void NotifyEvent(Event e);
     public delegate void ConfigurationEvent(List<string> addresses);
     public delegate SESDADConfig SESDADconfiguration(string SiteName);
+    public delegate SESDADConfig SESDADBrokerConfiguration();
     public delegate string PuppetMasterEvent(PuppetMasterEventArgs args);
     public enum PMEType { Register, Notify, ConfigReq }
     public class RemoteBroker : MarshalByRefObject
@@ -46,7 +47,11 @@ namespace SESDAD
 
     public class RemotePuppetSlave : MarshalByRefObject
     {
-
+        public SESDADBrokerConfiguration OnGetConfiguration;
+        public SESDADConfig GetConfiguration()
+        {
+            return OnGetConfiguration();
+        }
     }
 
     public class PuppetMasterRemote : MarshalByRefObject

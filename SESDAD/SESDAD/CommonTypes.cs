@@ -72,36 +72,57 @@ namespace SESDAD
         } 
 
     }
+    public class SESDADProcessConfig
+    {
+        public string ProcessName;
+        public string ProcessType;
+        public string ProcessAddress;
+    }
 
     public class SESDADConfig
     {
         string siteName;
-        string[] processList;
+        List<string> childrenSiteNames;       
+        List<SESDADProcessConfig> processConfigList;
+        string parentSiteName;
         string parentBrokerAddress;
-        string[] childBrokersAddresses;
-        public string[] ProcessList
-        {
-            get{return processList;}
-            set{processList = value;}
-        }
-
+        List<string> childBrokersAddresses;
+       
         public string ParentBrokerAddress
         {
             get{return parentBrokerAddress;}
             set{parentBrokerAddress = value;}
         }
 
-        public string[] ChildBrokersAddresses
-        {
-            get{return childBrokersAddresses;}
-            set{childBrokersAddresses = value;}
-        }
 
         public string SiteName
         {
             get {return siteName;}
-
             set {siteName = value;}
+        }
+
+        public string ParentSiteName
+        {
+            get { return parentSiteName; }
+            set { parentSiteName = value; }
+        }
+
+        public List<string> ChildrenSiteNames
+        {
+            get { return childrenSiteNames; }
+            set { childrenSiteNames = value; }
+        }
+
+        public List<SESDADProcessConfig> ProcessConfigList
+        {
+            get { return processConfigList; }
+            set { processConfigList = value; }
+        }
+
+        public List<string> ChildBrokersAddresses
+        {
+            get { return childBrokersAddresses; }
+            set { childBrokersAddresses = value; }
         }
 
         public SESDADConfig(string siteName)

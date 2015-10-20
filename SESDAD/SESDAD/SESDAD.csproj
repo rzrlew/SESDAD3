@@ -63,6 +63,7 @@
     <Compile Include="PuppetMasterForm.Designer.cs">
       <DependentUpon>PuppetMasterForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="TestConstants.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

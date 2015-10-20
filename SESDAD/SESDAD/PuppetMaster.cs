@@ -37,17 +37,7 @@ namespace SESDAD
             TcpChannel channel = new TcpChannel(9000);
             ChannelServices.RegisterChannel(channel, true);
             PuppetMasterRemote remotePM = new PuppetMasterRemote();
-            remotePM.brokerSignIn += new PuppetMasterEvent(RegisterBroker);
             RemotingServices.Marshal(remotePM, "puppetmaster");
-            new Thread(new ThreadStart(RegisteringLoop)).Start();
-        }
-
-        string RegisterBroker(PuppetMasterEventArgs args)
-        {
-            ShowMessage("Broker at \"" + args.address + "\" signing in!");
-            string brokerName = "broker" + brokerHash.Count.ToString();
-            brokerHash.Add(brokerName , args.address);
-            return brokerName;
         }
 
         void ShowMessage(string msg)
@@ -67,25 +57,6 @@ namespace SESDAD
         {
             RemoteBroker broker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), brokerAddress);
             broker.SetChildren(childrenAddresses.ToList<string>());
-        }
-
-        private void RegisteringLoop()
-        {
-            ShowMessage("Running Registering Loop");
-            while(true)
-            {
-                if(brokerHash.Count == 2)
-                {
-                    ShowMessage("Setting broker connections!");
-                    RemoteBroker broker = (RemoteBroker) Activator.GetObject(typeof(RemoteBroker), brokerHash["broker0"]);
-                    List<string> addressList = new List<string>();
-                    addressList.Add(brokerHash["broker1"]);
-                    broker.SetChildren(addressList);
-                    broker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), brokerHash["broker1"]);
-                    broker.SetParent(brokerHash["broker0"]);
-                    break;
-                }
-            }
         }
     }
 

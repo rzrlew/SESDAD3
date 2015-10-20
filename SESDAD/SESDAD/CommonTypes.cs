@@ -56,24 +56,10 @@ namespace SESDAD
 
     public class PuppetMasterRemote : MarshalByRefObject
     {
-        public PuppetMasterEvent brokerSignIn;
-        public SESDADconfiguration configRequest;
-        private static int startPort = 9000;
-        private int portCounter = 0;
-        public string Register(string address)
-        {
-            PuppetMasterEventArgs args = new PuppetMasterEventArgs(address);
-            return brokerSignIn(args);
-        }
-
-        public int GetNextPortNumber()
-        {
-            return ++portCounter + startPort;
-        }
-        
+        public SESDADconfiguration OnConfigRequest;   
         public SESDADConfig GetConfiguration(string siteName)
         {
-            return configRequest(siteName);
+            return OnConfigRequest(siteName);
         } 
 
     }
@@ -84,6 +70,8 @@ namespace SESDAD
         string[] processList;
         string parentBrokerAddress;
         string[] childBrokersAddresses;
+        string siteBrokerAddress;
+
         public string[] ProcessList
         {
             get{return processList;}
@@ -105,8 +93,13 @@ namespace SESDAD
         public string SiteName
         {
             get {return siteName;}
-
             set {siteName = value;}
+        }
+
+        public string SiteBrokerAddress
+        {
+            get{return siteBrokerAddress;}
+            set{siteBrokerAddress = value;}
         }
 
         public SESDADConfig(string siteName)

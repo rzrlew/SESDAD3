@@ -12,6 +12,7 @@ namespace SESDADBroker
 {
     public class Broker
     {
+        SESDADConfig configuration;
         public TcpChannel channel;
         RemoteBroker remoteBroker;
         Queue<Event> eventQueue;
@@ -29,17 +30,22 @@ namespace SESDADBroker
         {
             TcpChannel channel = new TcpChannel();
             ChannelServices.RegisterChannel(channel, true);
-            Broker bro = new Broker();
-            PuppetMasterRemote remotePuppetMaster = (PuppetMasterRemote) Activator.GetObject(typeof(PuppetMasterRemote), "tcp://localhost:9000/puppetmaster");
-            int portNum = remotePuppetMaster.GetNextPortNumber();
-            bro.Name = remotePuppetMaster.Register("tcp://localhost:" + portNum.ToString() + "/broker");
-            Console.WriteLine("Broker name: " + bro.name);
+            RemotePuppetSlave remotePuppetSlave = (RemotePuppetSlave) Activator.GetObject(typeof(PuppetMasterRemote), args[1]);
+            SESDADConfig configuration = remotePuppetSlave.GetConfiguration();
             ChannelServices.UnregisterChannel(channel);
-            channel = new TcpChannel(portNum);
+            channel = new TcpChannel(new Uri(configuration.SiteBrokerAddress).Port);
             ChannelServices.RegisterChannel(channel, true);
-            Console.WriteLine("Name: " + bro.name + Environment.NewLine +"Running on port: " + portNum.ToString());
+            Broker bro = new Broker(configuration.SiteName + "broker");
+            bro.configuration = configuration;          
             bro.channel = channel;
-            Console.WriteLine("press key to flood...");
+            List<string> parentAddress = new List<string>();
+            parentAddress.Add(configuration.ParentBrokerAddress);
+            bro.SetParent(parentAddress);
+            bro.SetChildren(configuration.ChildBrokersAddresses.ToList());
+
+            //Test Prints
+            Console.WriteLine("Name: " + bro.name + Environment.NewLine +"Running on address: " + configuration.SiteBrokerAddress);
+            Console.WriteLine("press <any> key to flood...");
             Console.ReadLine();
             bro.Flood(new Event("lololollol", "hahahaha", bro.name));
             Console.WriteLine("Show queue: press <any> key!");
@@ -49,7 +55,7 @@ namespace SESDADBroker
             Console.ReadLine();
         }
 
-        public Broker()
+        public Broker(string name)
         {
             Console.WriteLine("---Starting Broker---");
             Console.WriteLine("Creating remote broker...");
@@ -58,8 +64,7 @@ namespace SESDADBroker
             remoteBroker.setParentEvent += new ConfigurationEvent(SetParent);
             remoteBroker.setChildrenEvent += new ConfigurationEvent(SetChildren);
             eventQueue = new Queue<Event>();
-            Console.WriteLine("Setup Complete! Registering with PuppetMaster!");
-            RemotingServices.Marshal(remoteBroker, "broker");
+            RemotingServices.Marshal(remoteBroker, name);
             Console.WriteLine("Broker is listening...");
         }
 
@@ -89,8 +94,8 @@ namespace SESDADBroker
             Console.WriteLine("Flooding event: " + e.Message() + " from " + e.lastHop + " to all children!");
             e.lastHop = name;
             remoteBroker.floodList.Enqueue(e);
-            if (parentBroker != null && parentBroker.name != lastHopName)            {
-
+            if (parentBroker != null && parentBroker.name != lastHopName)
+            {
                 Console.WriteLine("Sending event to " + parentBroker.name);
                 parentBroker.Flood(e);
             }

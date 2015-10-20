@@ -13,11 +13,13 @@ using System.Runtime.Remoting.Channels.Tcp;
 namespace SESDAD
 {
     public delegate void PuppetMasterFormEvent(string msg);
+    
     public class PuppetMaster
     {
         Tree SESDADTree;
         PuppetMasterForm form;
         IDictionary<string, string> brokerHash = new Dictionary<string, string>();
+        List<SESDADConfig> configList = new List<SESDADConfig>();
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
@@ -37,7 +39,91 @@ namespace SESDAD
             TcpChannel channel = new TcpChannel(9000);
             ChannelServices.RegisterChannel(channel, true);
             PuppetMasterRemote remotePM = new PuppetMasterRemote();
+            remotePM.brokerSignIn += new PuppetMasterEvent(RegisterBroker);
             RemotingServices.Marshal(remotePM, "puppetmaster");
+            new Thread(new ThreadStart(RegisteringLoop)).Start();
+        }
+
+        private SESDADConfig searchConfigList(string SiteName)
+        {
+            foreach(SESDADConfig c in configList)
+            {
+                if (c.SiteName.Equals(SiteName))
+                {
+                    return c;
+                }
+            }
+            throw new NotImplementedException();
+        }
+
+        public void parseConfigFile(string filename)
+        {
+            StreamReader file = openConfigFile(filename);
+            
+            while (true)
+            {
+                string line = file.ReadLine();
+                if (line.Count() == 0) { break; }
+                string[] args = line.Split(' ');
+                switch (args[0])
+                {
+                    case "Site":
+                        {
+                            SESDADConfig conf = new SESDADConfig(args[1]);
+                            conf.ParentSiteName = args[3];
+                            foreach (SESDADConfig c in configList)
+                            {
+                                if (c.SiteName.Equals(args[3]))
+                                {
+                                    c.ChildrenSiteNames.Add(conf.SiteName);
+                                }
+                            }
+                            configList.Add(conf);
+                            break;
+                        }
+
+                    case "Process":
+                        {
+                            SESDADProcessConfig ProcessConf = new SESDADProcessConfig();
+                            ProcessConf.ProcessName = args[1];
+                            ProcessConf.ProcessType = args[3];
+                            ProcessConf.ProcessAddress = args[7];
+
+                            SESDADConfig conf = searchConfigList(args[5]); 
+                            conf.ProcessConfigList.Add(ProcessConf);
+                            if (conf.ParentSiteName != "none") // only needed if not Root Node
+                            {
+                                SESDADConfig parentConf = searchConfigList(conf.ParentSiteName); // Parent Configuration Class
+                                parentConf.ChildBrokersAddresses.Add(args[7]); // Add process address to parent list
+                            }
+                            break;
+                        }
+                }
+            }
+        }
+
+        private StreamReader openConfigFile(string fileName)
+        {
+            return new StreamReader(File.Open(fileName, FileMode.Open));
+        }
+
+        private Site GetNextSite(StreamReader file)
+        {
+            string line = file.ReadLine();
+            char[] siteName = new char[10];
+            line.CopyTo(line.LastIndexOf("Site") + 2, siteName, 0, 5);
+            Site site = new Site();
+            site.siteConfig.SiteName = siteName.ToString();
+
+            return site;
+        }
+
+        string RegisterBroker(PuppetMasterEventArgs args)
+        {
+            ShowMessage("Broker at \"" + args.address + "\" signing in!");
+            string brokerName = "broker" + brokerHash.Count.ToString();
+            brokerHash.Add(brokerName , args.address);
+            return brokerName;
         }
 
         void ShowMessage(string msg)
@@ -57,6 +143,25 @@ namespace SESDAD
         {
             RemoteBroker broker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), brokerAddress);
             broker.SetChildren(childrenAddresses.ToList<string>());
+        }
+
+        private void RegisteringLoop()
+        {
+            ShowMessage("Running Registering Loop");
+            while(true)
+            {
+                if(brokerHash.Count == 2)
+                {
+                    ShowMessage("Setting broker connections!");
+                    RemoteBroker broker = (RemoteBroker) Activator.GetObject(typeof(RemoteBroker), brokerHash["broker0"]);
+                    List<string> addressList = new List<string>();
+                    addressList.Add(brokerHash["broker1"]);
+                    broker.SetChildren(addressList);
+                    broker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), brokerHash["broker1"]);
+                    broker.SetParent(brokerHash["broker0"]);
+                    break;
+                }
+            }
         }
     }
 

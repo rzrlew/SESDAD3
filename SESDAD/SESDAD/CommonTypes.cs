@@ -12,6 +12,7 @@ namespace SESDAD
     public delegate SESDADBrokerConfig SESDADBrokerConfiguration();
     public delegate string PuppetMasterEvent(PuppetMasterEventArgs args);
     public enum PMEType { Register, Notify, ConfigReq }
+
     public class RemoteBroker : MarshalByRefObject
     {
 

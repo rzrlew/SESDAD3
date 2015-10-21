@@ -22,8 +22,11 @@ namespace SESDADBroker
 
         public string Name
         {
-            set{name = value;
-                remoteBroker.name = name;}
+            set
+            {
+                name = value;
+                remoteBroker.name = name;
+            }
         }
 
         public static void Main(string[] args)
@@ -37,15 +40,32 @@ namespace SESDADBroker
             bro.channel = channel;
             Console.WriteLine("Parent Broker Address: " + configuration.parentBrokerAddress);
 
-            if (!bro.isRoot())
+            if (bro.configuration.parentBrokerAddress != null) // checks if broker belongs to root node
             {
-                bro.parentBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), configuration.parentBrokerAddress);
+                bro.remoteBroker.SetParent(configuration.parentBrokerAddress);
+               // Console.WriteLine("parent Broker name: " + bro.parentBroker.name);
             }
-            foreach(string remoteAddress in configuration.childrenBrokerAddresses)
+            //{
+
+            //    bro.parentBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), configuration.parentBrokerAddress);
+            //    Console.WriteLine("parent Broker name: " + bro.parentBroker.name);
+            //}
+            if (configuration.childrenBrokerAddresses.Any())    // checks if list isn't empty
             {
-                bro.childBrokers.Add((RemoteBroker)Activator.GetObject(typeof(RemoteBroker), remoteAddress));
-            }
+                bro.remoteBroker.setChildrenEvent(configuration.childrenBrokerAddresses);
+               // Console.WriteLine("child broker: " + bro.name);
+            }    
+            //{
+            //    foreach (string remoteAddress in configuration.childrenBrokerAddresses)
+            //    {
+            //        Console.WriteLine("child Broker Address: " + remoteAddress);
+            //        bro.childBrokers.Add((RemoteBroker)Activator.GetObject(typeof(RemoteBroker), remoteAddress));
+            //        Console.WriteLine("child broker: " + bro.name);
+            //    }
+            //}
             //Test Prints
+            //Console.WriteLine("parent Broker name: " + bro.parentBroker.name);
+            //foreach(RemoteBroker r in bro.childBrokers) { Console.WriteLine("child broker: " + r.name); }
             //Console.WriteLine("Name: " + bro.name + Environment.NewLine +"Running on address: " + bro.configuration.brokerAddress);
             Console.WriteLine("press <any> key to flood...");
             Console.ReadLine();

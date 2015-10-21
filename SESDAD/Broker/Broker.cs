@@ -33,11 +33,20 @@ namespace SESDADBroker
             RemotePuppetSlave remotePuppetSlave = (RemotePuppetSlave) Activator.GetObject(typeof(RemotePuppetSlave), args[0]);
             SESDADBrokerConfig configuration = remotePuppetSlave.GetConfiguration();
             Broker bro = new Broker(configuration.brokerAddress);
-            bro.configuration = configuration;          
+            bro.configuration = remotePuppetSlave.GetConfiguration();
             bro.channel = channel;
+            Console.WriteLine("Parent Broker Address: " + configuration.parentBrokerAddress);
 
+            if (!bro.isRoot())
+            {
+                bro.parentBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), configuration.parentBrokerAddress);
+            }
+            foreach(string remoteAddress in configuration.childrenBrokerAddresses)
+            {
+                bro.childBrokers.Add((RemoteBroker)Activator.GetObject(typeof(RemoteBroker), remoteAddress));
+            }
             //Test Prints
-            Console.WriteLine("Name: " + bro.name + Environment.NewLine +"Running on address: " + bro.configuration.brokerAddress);
+            //Console.WriteLine("Name: " + bro.name + Environment.NewLine +"Running on address: " + bro.configuration.brokerAddress);
             Console.WriteLine("press <any> key to flood...");
             Console.ReadLine();
             bro.Flood(new Event("lololollol", "hahahaha", bro.name));
@@ -48,16 +57,16 @@ namespace SESDADBroker
             Console.ReadLine();
         }
 
-        public Broker(string name)
+        public Broker(string address)
         {
             Console.WriteLine("---Starting Broker---");
-            Console.WriteLine("Creating remote broker...");
+            Console.WriteLine("Creating remote broker on " + address + "...");
             remoteBroker = new RemoteBroker();
             remoteBroker.floodEvents += new NotifyEvent(Flood);
             remoteBroker.setParentEvent += new ConfigurationEvent(SetParent);
             remoteBroker.setChildrenEvent += new ConfigurationEvent(SetChildren);
             eventQueue = new Queue<Event>();
-            RemotingServices.Marshal(remoteBroker, name);
+            RemotingServices.Marshal(remoteBroker, address);
             Console.WriteLine("Broker is listening...");
         }
 

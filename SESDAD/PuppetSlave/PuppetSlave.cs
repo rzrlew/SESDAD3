@@ -48,13 +48,14 @@ namespace SESDAD
             StartupConfiguration(remotePuppetMaster.GetConfiguration(siteName));
         }
 
-        private SESDADBrokerConfig GetConfiguration()
+        public SESDADBrokerConfig GetConfiguration()
         {
             SESDADBrokerConfig brokerConf = new SESDADBrokerConfig();
             foreach(SESDADProcessConfig config in configuration.ProcessConfigList)
             {
                 if(config.ProcessType == "broker")
                 {
+                    brokerConf.parentBrokerAddress = config.ProcessParentAddress;
                     brokerConf.brokerAddress = config.ProcessAddress;
                     brokerConf.brokerName = config.ProcessName;
                 }

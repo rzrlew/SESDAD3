@@ -80,6 +80,7 @@ namespace SESDAD
     [Serializable]
     public class SESDADProcessConfig
     {
+        public string ProcessParentAddress;
         public string ProcessName;
         public string ProcessType;
         public string ProcessAddress;
@@ -144,6 +145,18 @@ namespace SESDAD
         public SESDADConfig(string siteName)
         {
             this.SiteName = siteName;
+        }
+
+        public SESDADProcessConfig searchBroker()
+        {
+            foreach(SESDADProcessConfig conf in processConfigList)
+            {
+                if (conf.ProcessType.Equals("broker"))
+                {
+                    return conf;
+                }
+            }
+            throw new NotImplementedException();
         }
 
 

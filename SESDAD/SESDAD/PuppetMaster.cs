@@ -49,7 +49,7 @@ namespace SESDAD
             remotePM.configRequest += new SESDADconfiguration(searchConfigList);
             ///RemotingConfiguration.RegisterWellKnownServiceType(typeof(PuppetMasterRemote), "puppetmaster", WellKnownObjectMode.Singleton);
             RemotingServices.Marshal(remotePM, "puppetmaster");
-            parseConfigFile("c:/Users/Luis/Desktop/DAD/proj/test-config.txt");
+            parseConfigFile(TestConstants.configFilePath);
         }
 
         private void BootStrapSystem()
@@ -92,11 +92,13 @@ namespace SESDAD
                         {
                             SESDADConfig conf = new SESDADConfig(args[1]);
                             conf.ParentSiteName = args[3];
+                            // SESDADConfig ParentConfig = searchConfigList(args[3]);
+                            // ParentConfig.ChildrenSiteNames.Add(conf.SiteName);
                             foreach (SESDADConfig c in configList)
                             {
-                                if (c.SiteName.Equals(args[3]))
+                                if (c.SiteName.Equals(args[3])) // search for Parent Site
                                 {
-                                    c.ChildrenSiteNames.Add(conf.SiteName);
+                                    c.ChildrenSiteNames.Add(conf.SiteName); // add siteName to parent node childList 
                                 }
                             }
                             configList.Add(conf);
@@ -105,17 +107,41 @@ namespace SESDAD
 
                     case "Process":
                         {
+                            string parentName = null;
+                            //SESDADConfig conf = null;
                             SESDADProcessConfig ProcessConf = new SESDADProcessConfig();
                             ProcessConf.ProcessName = args[1];
                             ProcessConf.ProcessType = args[3];
                             ProcessConf.ProcessAddress = args[7];
 
-                            SESDADConfig conf = searchConfigList(args[5]); 
+                            //foreach (SESDADConfig c in configList)
+                            //{
+                            //    if (c.SiteName.Equals(args[5])) // search for process site config in config List
+                            //    {
+                            //        c.ProcessConfigList.Add(ProcessConf);
+                            //        parentName = c.ParentSiteName;
+                            //        conf = c;
+                            //    }
+                            //}
+
+                            SESDADConfig conf = searchConfigList(args[5]);
+                            parentName = conf.ParentSiteName;
                             conf.ProcessConfigList.Add(ProcessConf);
-                            if (conf.ParentSiteName != "none") // only needed if not Root Node
+
+
+                            if (parentName != "none") // only needed if not Root Node
                             {
+                                //foreach (SESDADConfig c in configList)
+                                //{
+                                //    if (c.SiteName.Equals(parentName)) // search for process site config in config List
+                                //    {
+                                //        c.ProcessConfigList.Add(ProcessConf);
+                                //    }
+                                //}
+
                                 SESDADConfig parentConf = searchConfigList(conf.ParentSiteName); // Parent Configuration Class
                                 parentConf.ChildBrokersAddresses.Add(args[7]); // Add process address to parent list
+                                ProcessConf.ProcessParentAddress = parentConf.searchBroker().ProcessAddress;
                             }
                             break;
                         }

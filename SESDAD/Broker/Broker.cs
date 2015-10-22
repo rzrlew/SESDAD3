@@ -31,42 +31,18 @@ namespace SESDADBroker
 
         public static void Main(string[] args)
         {
-            TcpChannel channel = new TcpChannel();
-            ChannelServices.RegisterChannel(channel, true);
+            Console.WriteLine("Getting Broker configuration from site slave");
+            TcpChannel temp_channel = new TcpChannel();
+            ChannelServices.RegisterChannel(temp_channel, true);
             RemotePuppetSlave remotePuppetSlave = (RemotePuppetSlave) Activator.GetObject(typeof(RemotePuppetSlave), args[0]);
             SESDADBrokerConfig configuration = remotePuppetSlave.GetConfiguration();
-            Broker bro = new Broker(configuration.brokerAddress);
+            Console.WriteLine("Starting broker channel on port: " + new Uri(configuration.brokerAddress).Port);
+            TcpChannel channel = new TcpChannel(new Uri(configuration.brokerAddress).Port);
+            ChannelServices.UnregisterChannel(temp_channel);
+            ChannelServices.RegisterChannel(channel, true);
+            Broker bro = new Broker(configuration);
             bro.configuration = remotePuppetSlave.GetConfiguration();
             bro.channel = channel;
-            Console.WriteLine("Parent Broker Address: " + configuration.parentBrokerAddress);
-
-            if (bro.configuration.parentBrokerAddress != null) // checks if broker belongs to root node
-            {
-                bro.remoteBroker.SetParent(configuration.parentBrokerAddress);
-               // Console.WriteLine("parent Broker name: " + bro.parentBroker.name);
-            }
-            //{
-
-            //    bro.parentBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), configuration.parentBrokerAddress);
-            //    Console.WriteLine("parent Broker name: " + bro.parentBroker.name);
-            //}
-            if (configuration.childrenBrokerAddresses.Any())    // checks if list isn't empty
-            {
-                bro.remoteBroker.setChildrenEvent(configuration.childrenBrokerAddresses);
-               // Console.WriteLine("child broker: " + bro.name);
-            }    
-            //{
-            //    foreach (string remoteAddress in configuration.childrenBrokerAddresses)
-            //    {
-            //        Console.WriteLine("child Broker Address: " + remoteAddress);
-            //        bro.childBrokers.Add((RemoteBroker)Activator.GetObject(typeof(RemoteBroker), remoteAddress));
-            //        Console.WriteLine("child broker: " + bro.name);
-            //    }
-            //}
-            //Test Prints
-            //Console.WriteLine("parent Broker name: " + bro.parentBroker.name);
-            //foreach(RemoteBroker r in bro.childBrokers) { Console.WriteLine("child broker: " + r.name); }
-            //Console.WriteLine("Name: " + bro.name + Environment.NewLine +"Running on address: " + bro.configuration.brokerAddress);
             Console.WriteLine("press <any> key to flood...");
             Console.ReadLine();
             bro.Flood(new Event("lololollol", "hahahaha", bro.name));
@@ -77,16 +53,26 @@ namespace SESDADBroker
             Console.ReadLine();
         }
 
-        public Broker(string address)
+        public Broker(SESDADBrokerConfig config)
         {
             Console.WriteLine("---Starting Broker---");
-            Console.WriteLine("Creating remote broker on " + address + "...");
+            Console.WriteLine("Creating remote broker on " + config.brokerAddress);
+            configuration = config;
             remoteBroker = new RemoteBroker();
             remoteBroker.floodEvents += new NotifyEvent(Flood);
-            remoteBroker.setParentEvent += new ConfigurationEvent(SetParent);
-            remoteBroker.setChildrenEvent += new ConfigurationEvent(SetChildren);
             eventQueue = new Queue<Event>();
-            RemotingServices.Marshal(remoteBroker, address);
+            Name = config.brokerName;
+            if (config.parentBrokerAddress != null)
+            {
+                List<string> pList = new List<string>();
+                pList.Add(config.parentBrokerAddress);
+                SetParent(pList);
+            }
+            if (configuration.childrenBrokerAddresses.Any())
+            {
+                SetChildren(config.childrenBrokerAddresses);
+            }
+            RemotingServices.Marshal(remoteBroker, this.name);
             Console.WriteLine("Broker is listening...");
         }
 
@@ -97,15 +83,15 @@ namespace SESDADBroker
 
         public void SetParent(List<string> parentAddress)
         {
-            Console.WriteLine("Broker received message to set parent!");
+            Console.WriteLine("Adding parent broker at: " + parentAddress.ElementAt(0));
             parentBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), parentAddress.ElementAt(0));
         }
 
         public void SetChildren(List<string> childrenAddresses)
         {
-            Console.WriteLine("Broker received messsage to set children!");
             foreach (string childAddress in childrenAddresses)
             {
+                Console.WriteLine("Adding child broker at: " + childAddress);
                 childBrokers.Add((RemoteBroker)Activator.GetObject(typeof(RemoteBroker), childAddress));
             }
         }
@@ -116,16 +102,16 @@ namespace SESDADBroker
             Console.WriteLine("Flooding event: " + e.Message() + " from " + e.lastHop + " to all children!");
             e.lastHop = name;
             remoteBroker.floodList.Enqueue(e);
-            if (parentBroker != null && parentBroker.name != lastHopName)
+            if (parentBroker != null && parentBroker.GetName() != lastHopName)
             {
-                Console.WriteLine("Sending event to " + parentBroker.name);
+                Console.WriteLine("Sending event to " + parentBroker.GetName());
                 parentBroker.Flood(e);
             }
             foreach (RemoteBroker child in childBrokers)
             {
-                if (child.name != lastHopName)
+                if (child.GetName() != lastHopName)
                 {
-                    Console.WriteLine("Sending event to " + child.name);
+                    Console.WriteLine("Sending event to " + child.GetName());
                     child.Flood(e);
                 }
             }

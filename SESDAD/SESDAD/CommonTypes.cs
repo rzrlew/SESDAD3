@@ -15,7 +15,6 @@ namespace SESDAD
 
     public class RemoteBroker : MarshalByRefObject
     {
-
         public NotifyEvent floodEvents;
         public NotifyEvent sendToRoot;
         public ConfigurationEvent setParentEvent;
@@ -33,16 +32,9 @@ namespace SESDAD
             floodEvents(e);
         }
 
-        public void SetParent(string address)
+        public string GetName()
         {
-            List<string> parentList = new List<string>();
-            parentList.Add(address);
-            setParentEvent(parentList);
-        }
-
-        public void SetChildren(List<string> childrenAdresses)
-        {
-            setChildrenEvent(childrenAdresses);
+            return name;
         }
     }
 
@@ -93,7 +85,7 @@ namespace SESDAD
         public string brokerName;
         public string brokerAddress;
         public string parentBrokerAddress;
-        public List<string> childrenBrokerAddresses;
+        public List<string> childrenBrokerAddresses = new List<string>();
     }
 
     [Serializable]

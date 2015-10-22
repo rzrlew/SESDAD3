@@ -22,7 +22,8 @@ namespace SESDAD
         PuppetMasterForm form;
         IDictionary<string, string> brokerHash = new Dictionary<string, string>();
         List<SESDADConfig> configList = new List<SESDADConfig>();
-        private int slavePortCounter = 9000;
+        private int puppetMasterPort = 9000;
+        private int slavePortCounter = 5000;
 
         /// <summary>
         /// The main entry point for the application.
@@ -42,7 +43,7 @@ namespace SESDAD
             form = new PuppetMasterForm();
             form.OnBajorasPrint += new PuppetMasterFormEvent(ShowRemoteMasterRef);
             SESDADTree = new Tree();
-            TcpChannel channel = new TcpChannel(slavePortCounter);
+            TcpChannel channel = new TcpChannel(puppetMasterPort);
             ChannelServices.RegisterChannel(channel, true);
             PuppetMasterRemote remotePM = new PuppetMasterRemote();
             remotePM.brokerSignIn += new PuppetMasterEvent(RegisterBroker);
@@ -56,7 +57,9 @@ namespace SESDAD
         {
             foreach(SESDADConfig slaveConfig in configList)
             {
-                Process.Start(TestConstants.puppetSlavePath, "tcp://localhost:9000/puppetmaster " + slaveConfig.SiteName + " " +  ++slavePortCounter);
+                int nextSlavePort = ++slavePortCounter + 1000;
+                Console.WriteLine("Starting slave on port: " + nextSlavePort);
+                Process.Start(TestConstants.puppetSlavePath, "tcp://localhost:" + puppetMasterPort + "/puppetmaster " + slaveConfig.SiteName + " " +  nextSlavePort);
             }
         }
 
@@ -114,31 +117,12 @@ namespace SESDAD
                             ProcessConf.ProcessType = args[3];
                             ProcessConf.ProcessAddress = args[7];
 
-                            //foreach (SESDADConfig c in configList)
-                            //{
-                            //    if (c.SiteName.Equals(args[5])) // search for process site config in config List
-                            //    {
-                            //        c.ProcessConfigList.Add(ProcessConf);
-                            //        parentName = c.ParentSiteName;
-                            //        conf = c;
-                            //    }
-                            //}
-
                             SESDADConfig conf = searchConfigList(args[5]);
                             parentName = conf.ParentSiteName;
                             conf.ProcessConfigList.Add(ProcessConf);
 
-
                             if (parentName != "none") // only needed if not Root Node
                             {
-                                //foreach (SESDADConfig c in configList)
-                                //{
-                                //    if (c.SiteName.Equals(parentName)) // search for process site config in config List
-                                //    {
-                                //        c.ProcessConfigList.Add(ProcessConf);
-                                //    }
-                                //}
-
                                 SESDADConfig parentConf = searchConfigList(conf.ParentSiteName); // Parent Configuration Class
                                 parentConf.ChildBrokersAddresses.Add(args[7]); // Add process address to parent list
                                 ProcessConf.ProcessParentAddress = parentConf.searchBroker().ProcessAddress;
@@ -179,19 +163,6 @@ namespace SESDAD
             arguments[0] = msg + Environment.NewLine;
             form.Invoke(new PuppetMasterFormEvent(form.appendToOutputWindow), arguments);
         }
-
-        public void SetBrokerParent(string brokerAddress, string parentAddress)
-        {
-            RemoteBroker broker = (RemoteBroker) Activator.GetObject(typeof(RemoteBroker), brokerAddress);
-            broker.SetParent(parentAddress);
-        }
-
-        public void SetBrokerChildren(string brokerAddress, string[] childrenAddresses)
-        {
-            RemoteBroker broker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), brokerAddress);
-            broker.SetChildren(childrenAddresses.ToList<string>());
-        }
-
     }
 
     public class Tree

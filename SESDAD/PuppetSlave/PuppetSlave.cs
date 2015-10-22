@@ -40,7 +40,7 @@ namespace SESDAD
             port = int.Parse(portString);
             channel = new TcpChannel(port);
             ChannelServices.RegisterChannel(channel, true);
-            Console.WriteLine("Slave created Tcp Channel!");
+            Console.WriteLine("Slave created Tcp Channel on port: " + portString);
             Console.WriteLine("Contacting PuppetMaster on: " + puppetMasterAddress);
             remotePuppetMaster = (PuppetMasterRemote)Activator.GetObject(typeof(PuppetMasterRemote), puppetMasterAddress);
             SESDADConfig config_bajoras = remotePuppetMaster.GetConfiguration(siteName);
@@ -61,6 +61,7 @@ namespace SESDAD
                 }
             }
             brokerConf.childrenBrokerAddresses = configuration.ChildBrokersAddresses;
+            Console.WriteLine("Sending configuration with parent broker at: " + brokerConf.parentBrokerAddress);
             return brokerConf;
         }
 

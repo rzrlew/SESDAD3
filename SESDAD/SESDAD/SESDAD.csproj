@@ -54,7 +54,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CommonTypes.cs" />
+    <Compile Include="ClientIPServerSinkProvider.cs" />
     <Compile Include="PuppetMaster.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="PuppetMasterForm.cs">
@@ -72,6 +72,12 @@
     <EmbeddedResource Include="PuppetMasterForm.resx">
       <DependentUpon>PuppetMasterForm.cs</DependentUpon>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SESDADCommon\SESDADCommon.csproj">
+      <Project>{01f4cbcc-1fa1-4d1a-bfa8-bbcc913e6a5b}</Project>
+      <Name>SESDADCommon</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

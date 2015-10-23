@@ -26,7 +26,17 @@ namespace SESDAD
 
         private void bajorasPrintButton_Click(object sender, EventArgs e)
         {
-            OnBajorasPrint("bajoras");
+            OnBajorasPrint("");
+        }
+
+        private void single_command_box_KeyDown(object sender, KeyEventArgs e)
+        {
+            ParseSingleCommand(single_command_box.Text);
+        }
+
+        private void ParseSingleCommand(string text)
+        {
+            throw new NotImplementedException();
         }
     }
 }

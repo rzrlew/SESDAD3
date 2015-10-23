@@ -7,6 +7,9 @@ using System.Diagnostics;
 using System.Runtime.Remoting;
 using System.Runtime.Remoting.Channels;
 using System.Runtime.Remoting.Channels.Tcp;
+using System.Collections;
+using System.Runtime.Remoting.Messaging;
+using System.Net;
 
 namespace SESDAD
 {
@@ -38,18 +41,28 @@ namespace SESDAD
             remotePuppetSlave = new RemotePuppetSlave();
             remotePuppetSlave.OnGetConfiguration += new SESDADBrokerConfiguration(GetConfiguration);
             port = int.Parse(portString);
-            channel = new TcpChannel(port);
+
+            //To provide the ability to get the client ip address.
+            BinaryServerFormatterSinkProvider bp = new BinaryServerFormatterSinkProvider();
+            BinaryClientFormatterSinkProvider c_sink = new BinaryClientFormatterSinkProvider();
+            ClientIPServerSinkProvider csp = new ClientIPServerSinkProvider();
+            csp.Next = bp;
+            Hashtable ht = new Hashtable();
+            ht.Add("port", portString);
+            channel = new TcpChannel(ht, c_sink, csp);
             ChannelServices.RegisterChannel(channel, true);
+
             Console.WriteLine("Slave created Tcp Channel on port: " + portString);
             Console.WriteLine("Contacting PuppetMaster on: " + puppetMasterAddress);
             remotePuppetMaster = (PuppetMasterRemote)Activator.GetObject(typeof(PuppetMasterRemote), puppetMasterAddress);
-            SESDADConfig config_bajoras = remotePuppetMaster.GetConfiguration(siteName);
-            Console.WriteLine("Config-Bajoras: " + config_bajoras.SiteName);
+            SESDADConfig siteConfig = remotePuppetMaster.GetConfiguration(siteName);
+            Console.WriteLine("Site name: " + siteConfig.SiteName);
             StartupConfiguration(remotePuppetMaster.GetConfiguration(siteName));
         }
 
         public SESDADBrokerConfig GetConfiguration()
         {
+            Console.WriteLine("Got a configuration request from broker.");
             SESDADBrokerConfig brokerConf = new SESDADBrokerConfig();
             foreach(SESDADProcessConfig config in configuration.ProcessConfigList)
             {
@@ -58,10 +71,11 @@ namespace SESDAD
                     brokerConf.parentBrokerAddress = config.ProcessParentAddress;
                     brokerConf.brokerAddress = config.ProcessAddress;
                     brokerConf.brokerName = config.ProcessName;
+                    break;
                 }
             }
             brokerConf.childrenBrokerAddresses = configuration.ChildBrokersAddresses;
-            Console.WriteLine("Sending configuration with parent broker at: " + brokerConf.parentBrokerAddress);
+            Console.WriteLine("Sending broker " + brokerConf.brokerName + " it's configuration!");
             return brokerConf;
         }
 

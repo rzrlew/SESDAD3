@@ -51,6 +51,10 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\SESDADCommon\SESDADCommon.csproj">
+      <Project>{01f4cbcc-1fa1-4d1a-bfa8-bbcc913e6a5b}</Project>
+      <Name>SESDADCommon</Name>
+    </ProjectReference>
     <ProjectReference Include="..\SESDAD\SESDAD.csproj">
       <Project>{cd145c7c-cd7e-4c82-b1a1-22d4f3702535}</Project>
       <Name>SESDAD</Name>

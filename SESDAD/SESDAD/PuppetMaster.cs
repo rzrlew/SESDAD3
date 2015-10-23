@@ -20,6 +20,7 @@ namespace SESDAD
         PuppetMasterForm form;
         IDictionary<string, string> brokerHash = new Dictionary<string, string>();
         List<SESDADConfig> configList = new List<SESDADConfig>();
+        private List<string> toShowMessages = new List<string>();
         private int puppetMasterPort = 9000;
         private int slavePortCounter = 5000;
 
@@ -39,6 +40,7 @@ namespace SESDAD
         public PuppetMaster()
         {
             form = new PuppetMasterForm();
+            form.OnBajorasPrint += new PuppetMasterFormEvent(ShowMessage);
             TcpChannel channel = new TcpChannel(puppetMasterPort);
             ChannelServices.RegisterChannel(channel, true);
             PuppetMasterRemote remotePM = new PuppetMasterRemote();
@@ -53,7 +55,7 @@ namespace SESDAD
             foreach(SESDADConfig slaveConfig in configList) 
             {
                 int nextSlavePort = ++slavePortCounter + 1000;
-                Console.WriteLine("Starting slave on port: " + nextSlavePort);
+                toShowMessages.Add("Slave for " + slaveConfig.SiteName + " is on port " + nextSlavePort);
                 Process.Start(TestConstants.puppetSlavePath, "tcp://localhost:" + puppetMasterPort + "/puppetmaster " + slaveConfig.SiteName + " " +  nextSlavePort);
             }
         }
@@ -126,16 +128,24 @@ namespace SESDAD
 
         string RegisterBroker(PuppetMasterEventArgs args)   // saves broker address in Hash
         {
-            ShowMessage("Broker at \"" + args.Address + "\" signing in!");
-            string brokerName = "broker" + brokerHash.Count.ToString();
+            ShowMessage("Broker \"" + args.BrokerName + "\" at \"" + args.Address + "\" signing in!");
+            string brokerName = args.SiteName;
             brokerHash.Add(brokerName , args.Address);
             return brokerName;
         }
 
         void ShowMessage(string msg)    // print given string in puppet master form
         {
+            string prependMessages = "";
+            if(toShowMessages.Count > 0)
+            {
+                foreach(string m in toShowMessages)
+                {
+                    prependMessages += m + Environment.NewLine;
+                }
+            }
             object[] arguments = new object[1];
-            arguments[0] = msg + Environment.NewLine;
+            arguments[0] = prependMessages + msg + Environment.NewLine;
             form.Invoke(new PuppetMasterFormEvent(form.appendToOutputWindow), arguments);
         }
     }

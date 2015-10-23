@@ -22,9 +22,10 @@ namespace SESDADBroker
 
         public static void Main(string[] args)
         {
-            Console.WriteLine("Getting Broker configuration from site slave");
+            Console.WriteLine("Getting Broker configuration from site slave at " + args[0]);
             TcpChannel temp_channel = new TcpChannel();
             ChannelServices.RegisterChannel(temp_channel, true);
+
             RemotePuppetSlave remotePuppetSlave = (RemotePuppetSlave) Activator.GetObject(typeof(RemotePuppetSlave), args[0]);
             SESDADBrokerConfig configuration = remotePuppetSlave.GetConfiguration();
             Console.WriteLine("Starting broker channel on port: " + new Uri(configuration.brokerAddress).Port);
@@ -32,7 +33,7 @@ namespace SESDADBroker
             ChannelServices.UnregisterChannel(temp_channel);
             ChannelServices.RegisterChannel(channel, true);
             Broker bro = new Broker(configuration);
-            bro.configuration = remotePuppetSlave.GetConfiguration();
+            bro.configuration = configuration;
             bro.Channel = channel;
             Console.WriteLine("write [flood] for flooding of Event..." + Environment.NewLine + "write [quit] to terminate Broker process...");
             string s = Console.ReadLine();
@@ -94,13 +95,13 @@ namespace SESDADBroker
             return (parentBroker == null) ? true : false;
         }
 
-        public void SetParent(List<string> parentAddress) // add parent broker addresss to list
+        private void SetParent(List<string> parentAddress) // add parent broker addresss to list
         {
             Console.WriteLine("Adding parent broker at: " + parentAddress.ElementAt(0));
             parentBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), parentAddress.ElementAt(0));
         }
 
-        public void SetChildren(List<string> childrenAddresses)
+        private void SetChildren(List<string> childrenAddresses)
         {
             foreach (string childAddress in childrenAddresses)
             {

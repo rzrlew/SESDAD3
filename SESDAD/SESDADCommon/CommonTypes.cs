@@ -11,7 +11,7 @@ namespace SESDAD
     public delegate SESDADConfig SESDADconfiguration(string SiteName);
     public delegate SESDADBrokerConfig SESDADBrokerConfiguration();
     public delegate string PuppetMasterEvent(PuppetMasterEventArgs args);
-    public enum PMEType { Register, Notify, ConfigReq }
+    public enum PMEType { Register, Notify, ConfigReq, Log }
 
     public class RemoteBroker : MarshalByRefObject
     {
@@ -46,12 +46,13 @@ namespace SESDAD
     {
         public PuppetMasterEvent brokerSignIn;
         public SESDADconfiguration configRequest;
+        public PuppetMasterEvent OnLogMessage;
         static int startPort = 9000;
         int portCounter = 0;
 
-        public string Register(string address)
+        public string Register(string address, string broker_name)
         {
-            PuppetMasterEventArgs args = new PuppetMasterEventArgs(address);
+            PuppetMasterEventArgs args = new PuppetMasterEventArgs(address, broker_name);
             return brokerSignIn(args);
         }
 
@@ -63,7 +64,14 @@ namespace SESDAD
         public SESDADConfig GetConfiguration(string siteName)
         {
             return configRequest(siteName);
-        } 
+        }
+
+        public void LogMessage(string message, DateTime time)
+        {
+            PuppetMasterEventArgs args = new PuppetMasterEventArgs(PMEType.Log);
+            args.LogMessage = "[" + time.ToShortTimeString() + "]: " + message;
+            OnLogMessage(args);
+        }
 
     }
     [Serializable]
@@ -169,8 +177,10 @@ namespace SESDAD
     {
         PMEType type;
         string siteName;
+        string brokerName;
         string address;
         Event ev;
+        string logMessage;
 
         public PMEType Type
         {
@@ -193,14 +203,27 @@ namespace SESDAD
             set{ ev = value; }
         }
 
+        public string LogMessage
+        {
+            get{return logMessage;}
+            set{logMessage = value;}
+        }
+
+        public string BrokerName
+        {
+            get{return brokerName;}
+            set{brokerName = value;}
+        }
+
         public PuppetMasterEventArgs(PMEType type)
         {
             this.Type = type;
         }
 
-        public PuppetMasterEventArgs(string address)
+        public PuppetMasterEventArgs(string address, string broker_name)
         {
             this.Type = PMEType.Register;
+            this.brokerName = broker_name;
             this.Address = address;
         }
         public PuppetMasterEventArgs(Event ev)

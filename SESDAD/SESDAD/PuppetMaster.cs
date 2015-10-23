@@ -17,8 +17,6 @@ namespace SESDAD
     
     public class PuppetMaster
     {
-        ObjRef remoteMasterRef;
-        Tree SESDADTree;
         PuppetMasterForm form;
         IDictionary<string, string> brokerHash = new Dictionary<string, string>();
         List<SESDADConfig> configList = new List<SESDADConfig>();
@@ -41,21 +39,18 @@ namespace SESDAD
         public PuppetMaster()
         {
             form = new PuppetMasterForm();
-            form.OnBajorasPrint += new PuppetMasterFormEvent(ShowRemoteMasterRef);
-            SESDADTree = new Tree();
             TcpChannel channel = new TcpChannel(puppetMasterPort);
             ChannelServices.RegisterChannel(channel, true);
             PuppetMasterRemote remotePM = new PuppetMasterRemote();
             remotePM.brokerSignIn += new PuppetMasterEvent(RegisterBroker);
             remotePM.configRequest += new SESDADconfiguration(searchConfigList);
-            ///RemotingConfiguration.RegisterWellKnownServiceType(typeof(PuppetMasterRemote), "puppetmaster", WellKnownObjectMode.Singleton);
             RemotingServices.Marshal(remotePM, "puppetmaster");
             parseConfigFile(TestConstants.configFilePath);
         }
 
-        private void BootStrapSystem()
+        private void BootStrapSystem()  // launches a PuppetSlave process for each Configuration Class created after reading config file
         {
-            foreach(SESDADConfig slaveConfig in configList)
+            foreach(SESDADConfig slaveConfig in configList) 
             {
                 int nextSlavePort = ++slavePortCounter + 1000;
                 Console.WriteLine("Starting slave on port: " + nextSlavePort);
@@ -63,12 +58,7 @@ namespace SESDAD
             }
         }
 
-        private void ShowRemoteMasterRef(string bajoras)
-        {
-            ShowMessage(remoteMasterRef.URI);
-        }
-
-        private SESDADConfig searchConfigList(string SiteName)
+        private SESDADConfig searchConfigList(string SiteName)  // returns the Config Class of specified Site
         {
             foreach(SESDADConfig c in configList)
             {
@@ -87,7 +77,7 @@ namespace SESDAD
             while (true)
             {
                 string line = file.ReadLine();
-                if (line == null) { break; }
+                if (line == null) { break; }    // ends parse if end of file
                 string[] args = line.Split(' ');
                 switch (args[0])
                 {
@@ -95,13 +85,11 @@ namespace SESDAD
                         {
                             SESDADConfig conf = new SESDADConfig(args[1]);
                             conf.ParentSiteName = args[3];
-                            // SESDADConfig ParentConfig = searchConfigList(args[3]);
-                            // ParentConfig.ChildrenSiteNames.Add(conf.SiteName);
                             foreach (SESDADConfig c in configList)
                             {
                                 if (c.SiteName.Equals(args[3])) // search for Parent Site
                                 {
-                                    c.ChildrenSiteNames.Add(conf.SiteName); // add siteName to parent node childList 
+                                    c.ChildrenSiteNames.Add(conf.SiteName); // add siteName to parent node child Name List 
                                 }
                             }
                             configList.Add(conf);
@@ -111,21 +99,19 @@ namespace SESDAD
                     case "Process":
                         {
                             string parentName = null;
-                            //SESDADConfig conf = null;
                             SESDADProcessConfig ProcessConf = new SESDADProcessConfig();
                             ProcessConf.ProcessName = args[1];
                             ProcessConf.ProcessType = args[3];
                             ProcessConf.ProcessAddress = args[7];
-
-                            SESDADConfig conf = searchConfigList(args[5]);
+                            SESDADConfig conf = searchConfigList(args[5]); // search for Configuration Class using Site Name
                             parentName = conf.ParentSiteName;
-                            conf.ProcessConfigList.Add(ProcessConf);
+                            conf.ProcessConfigList.Add(ProcessConf); // adds Process Config to Site Configuration Class 
 
                             if (parentName != "none") // only needed if not Root Node
                             {
                                 SESDADConfig parentConf = searchConfigList(conf.ParentSiteName); // Parent Configuration Class
                                 parentConf.ChildBrokersAddresses.Add(args[7]); // Add process address to parent list
-                                ProcessConf.ProcessParentAddress = parentConf.searchBroker().ProcessAddress;
+                                ProcessConf.ProcessParentAddress = parentConf.searchBroker().ProcessAddress; // address of 'first' broker of Site
                             }
                             break;
                         }
@@ -138,26 +124,15 @@ namespace SESDAD
             return new StreamReader(File.Open(fileName, FileMode.Open));
         }
 
-        private Site GetNextSite(StreamReader file)
+        string RegisterBroker(PuppetMasterEventArgs args)   // saves broker address in Hash
         {
-            string line = file.ReadLine();
-            char[] siteName = new char[10];
-            line.CopyTo(line.LastIndexOf("Site") + 2, siteName, 0, 5);
-            Site site = new Site();
-            site.siteConfig.SiteName = siteName.ToString();
-
-            return site;
-        }
-
-        string RegisterBroker(PuppetMasterEventArgs args)
-        {
-            ShowMessage("Broker at \"" + args.address + "\" signing in!");
+            ShowMessage("Broker at \"" + args.Address + "\" signing in!");
             string brokerName = "broker" + brokerHash.Count.ToString();
-            brokerHash.Add(brokerName , args.address);
+            brokerHash.Add(brokerName , args.Address);
             return brokerName;
         }
 
-        void ShowMessage(string msg)
+        void ShowMessage(string msg)    // print given string in puppet master form
         {
             object[] arguments = new object[1];
             arguments[0] = msg + Environment.NewLine;
@@ -165,66 +140,63 @@ namespace SESDAD
         }
     }
 
-    public class Tree
-    {
-        Site rootNode = null;
-        public void CreateNextNode()
-        {
+    //private Site GetNextSite(StreamReader file)
+    //{
+    //    string line = file.ReadLine();
+    //    char[] siteName = new char[10];
+    //    line.CopyTo(line.LastIndexOf("Site") + 2, siteName, 0, 5);
+    //    Site site = new Site();
+    //    site.siteConfig.SiteName = siteName.ToString();
 
-        }
-    }
+    //    return site;
+    //}
 
-    class Site
-    {
-        List<Site> children;
-        Site parent;
-        public SESDADConfig siteConfig;
+    //public class Tree
+    //{
+    //    Site rootNode = null;
+    //    public void CreateNextNode()
+    //    {
 
-        public List<Site> Children
-        {
-            get{return children;}
-            set{children = value;}
-        }
+    //    }
+    //}
 
-        public Site Parent
-        {
-            get{return parent;}
-            set{parent = value;}
-        }
-    }
+    //class Site
+    //{
+    //    List<Site> children;
+    //    Site parent;
+    //    public SESDADConfig siteConfig;
 
-    public class ConfigurationParser
-    {
-        StreamReader file;
+    //    public List<Site> Children
+    //    {
+    //        get{return children;}
+    //        set{children = value;}
+    //    }
 
-        public ConfigurationParser(string fileName)
-        {
-            file = new StreamReader(File.Open(fileName, FileMode.Open));
-        }
+    //    public Site Parent
+    //    {
+    //        get{return parent;}
+    //        set{parent = value;}
+    //    }
+    //}
 
-        public Tree BuildInfoTree()
-        {
-            Tree tree = new Tree();
-            ///First Setup Phase
+    //public class ConfigurationParser
+    //{
+    //    StreamReader file;
 
-            return tree;
-        }
+    //    public ConfigurationParser(string fileName)
+    //    {
+    //        file = new StreamReader(File.Open(fileName, FileMode.Open));
+    //    }
 
-        private Site GetNextSite()
-        {
-            string line = file.ReadLine();
-            char[] siteName = new char[10];
-            line.CopyTo(line.LastIndexOf("Site") + 2, siteName, 0, 5);
-            Site site = new Site();
-            site.siteConfig.SiteName = siteName.ToString();
+    //    private Site GetNextSite()
+    //    {
+    //        string line = file.ReadLine();
+    //        char[] siteName = new char[10];
+    //        line.CopyTo(line.LastIndexOf("Site") + 2, siteName, 0, 5);
+    //        Site site = new Site();
+    //        site.siteConfig.SiteName = siteName.ToString();
 
-            return site;
-        }
-    }
-
-    abstract class Worker
-    {
-        string name;
-        string url;
-    }
+    //        return site;
+    //    }
+    //}
 }

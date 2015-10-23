@@ -13,21 +13,12 @@ namespace SESDADBroker
     public class Broker
     {
         SESDADBrokerConfig configuration;
-        public TcpChannel channel;
+        TcpChannel channel;
         RemoteBroker remoteBroker;
         Queue<Event> eventQueue;
         RemoteBroker parentBroker = null;
         List<RemoteBroker> childBrokers = new List<RemoteBroker>();
         string name;
-
-        public string Name
-        {
-            set
-            {
-                name = value;
-                remoteBroker.name = name;
-            }
-        }
 
         public static void Main(string[] args)
         {
@@ -42,15 +33,23 @@ namespace SESDADBroker
             ChannelServices.RegisterChannel(channel, true);
             Broker bro = new Broker(configuration);
             bro.configuration = remotePuppetSlave.GetConfiguration();
-            bro.channel = channel;
-            Console.WriteLine("press <any> key to flood...");
-            Console.ReadLine();
-            bro.Flood(new Event("lololollol", "hahahaha", bro.name));
-            Console.WriteLine("Show queue: press <any> key!");
-            Console.ReadLine();
-            Event e = bro.remoteBroker.floodList.Dequeue();
-            Console.WriteLine(e.Message());
-            Console.ReadLine();
+            bro.Channel = channel;
+            Console.WriteLine("write [flood] for flooding of Event..." + Environment.NewLine + "write [quit] to terminate Broker process...");
+            string s = Console.ReadLine();
+            while (!s.Equals("quit"))
+            {
+                if (s.Equals("flood"))
+                {
+                    bro.Flood(new Event("lololollol", "hahahaha", bro.name));
+                }
+                if (bro.remoteBroker.floodList.Any())
+                {
+                    Event e = bro.remoteBroker.floodList.Dequeue();
+                    Console.WriteLine(e.Message());
+                }
+                s = Console.ReadLine();
+            }
+            Console.WriteLine("Ending Broker Process: " + bro.name);
         }
 
         public Broker(SESDADBrokerConfig config)
@@ -76,12 +75,26 @@ namespace SESDADBroker
             Console.WriteLine("Broker is listening...");
         }
 
-        public bool isRoot()
+        public string Name
+        {
+            set
+            {
+                name = value;
+                remoteBroker.name = name;
+            }
+        }
+        public TcpChannel Channel
+        {
+            get {   return channel;     }
+            set {   channel = value;    }
+        }
+
+        public bool isRoot() // checks if broker belongs to Root Node
         {
             return (parentBroker == null) ? true : false;
         }
 
-        public void SetParent(List<string> parentAddress)
+        public void SetParent(List<string> parentAddress) // add parent broker addresss to list
         {
             Console.WriteLine("Adding parent broker at: " + parentAddress.ElementAt(0));
             parentBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), parentAddress.ElementAt(0));
@@ -102,16 +115,16 @@ namespace SESDADBroker
             Console.WriteLine("Flooding event: " + e.Message() + " from " + e.lastHop + " to all children!");
             e.lastHop = name;
             remoteBroker.floodList.Enqueue(e);
-            if (parentBroker != null && parentBroker.GetName() != lastHopName)
+            if (parentBroker != null && parentBroker.name != lastHopName)
             {
-                Console.WriteLine("Sending event to " + parentBroker.GetName());
+                Console.WriteLine("Sending event to " + parentBroker.name);
                 parentBroker.Flood(e);
             }
             foreach (RemoteBroker child in childBrokers)
             {
-                if (child.GetName() != lastHopName)
+                if (child.name != lastHopName)
                 {
-                    Console.WriteLine("Sending event to " + child.GetName());
+                    Console.WriteLine("Sending event to " + child.name);
                     child.Flood(e);
                 }
             }

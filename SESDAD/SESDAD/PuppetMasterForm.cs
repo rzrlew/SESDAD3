@@ -12,7 +12,6 @@ namespace SESDAD
 {
     public partial class PuppetMasterForm : Form
     {
-        Tree SESDADTree;
         public PuppetMasterFormEvent OnBajorasPrint;
         public PuppetMasterForm()
         {

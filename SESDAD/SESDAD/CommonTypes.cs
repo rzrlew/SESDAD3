@@ -19,8 +19,8 @@ namespace SESDAD
         public NotifyEvent sendToRoot;
         public ConfigurationEvent setParentEvent;
         public ConfigurationEvent setChildrenEvent;
-        public string name;
         public Queue<Event> floodList;
+        public string name;
 
         public RemoteBroker()
         {
@@ -31,16 +31,11 @@ namespace SESDAD
         {
             floodEvents(e);
         }
-
-        public string GetName()
-        {
-            return name;
-        }
     }
 
     public class RemotePuppetSlave : MarshalByRefObject
     {
-        public SESDADBrokerConfiguration OnGetConfiguration;
+        public SESDADBrokerConfiguration OnGetConfiguration;    // broker configuration delegate
         public SESDADBrokerConfig GetConfiguration()
         {
             return OnGetConfiguration();
@@ -51,8 +46,9 @@ namespace SESDAD
     {
         public PuppetMasterEvent brokerSignIn;
         public SESDADconfiguration configRequest;
-        private static int startPort = 9000;
-        private int portCounter = 0;
+        static int startPort = 9000;
+        int portCounter = 0;
+
         public string Register(string address)
         {
             PuppetMasterEventArgs args = new PuppetMasterEventArgs(address);
@@ -73,10 +69,31 @@ namespace SESDAD
     [Serializable]
     public class SESDADProcessConfig
     {
-        public string ProcessParentAddress;
-        public string ProcessName;
-        public string ProcessType;
-        public string ProcessAddress;
+        string processParentAddress;
+        string processName;
+        string processType;
+        string processAddress;
+
+        public string ProcessParentAddress
+        {
+            get {   return processParentAddress;    }
+            set {   processParentAddress = value;   }
+        }
+        public string ProcessName
+        {
+            get {   return processName; }
+            set {   processName = value;}
+        }
+        public string ProcessType
+        {
+            get { return processType; }
+            set { processType = value; }
+        }
+        public string ProcessAddress
+        {
+            get { return processAddress; }
+            set { processAddress = value; }
+        }
     }
 
     [Serializable]
@@ -100,35 +117,29 @@ namespace SESDAD
        
         public string ParentBrokerAddress
         {
-            get{return parentBrokerAddress;}
-            set{parentBrokerAddress = value;}
+            get{ return parentBrokerAddress; }
+            set{ parentBrokerAddress = value; }
         }
-
-
         public string SiteName
         {
-            get {return siteName;}
-            set {siteName = value;}
+            get { return siteName; }
+            set { siteName = value; }
         }
-
         public string ParentSiteName
         {
             get { return parentSiteName; }
             set { parentSiteName = value; }
         }
-
         public List<string> ChildrenSiteNames
         {
             get { return childrenSiteNames; }
             set { childrenSiteNames = value; }
         }
-
         public List<SESDADProcessConfig> ProcessConfigList
         {
             get { return processConfigList; }
             set { processConfigList = value; }
         }
-
         public List<string> ChildBrokersAddresses
         {
             get { return childBrokersAddresses; }
@@ -151,43 +162,62 @@ namespace SESDAD
             }
             throw new NotImplementedException();
         }
-
-
     }
 
     [Serializable]
     public class PuppetMasterEventArgs
     {
-        public PMEType type;
-        public string siteName;
-        public string address;
-        public Event ev;
+        PMEType type;
+        string siteName;
+        string address;
+        Event ev;
+
+        public PMEType Type
+        {
+            get { return type; }
+            set { type = value; }
+        }
+        public string SiteName
+        {
+            get { return siteName; }
+            set { siteName = value; }
+        }
+        public string Address
+        {
+            get { return address; }
+            set { address = value; }
+        }
+        public Event Ev
+        {
+            get{ return ev; }
+            set{ ev = value; }
+        }
 
         public PuppetMasterEventArgs(PMEType type)
         {
-            this.type = type;
+            this.Type = type;
         }
 
         public PuppetMasterEventArgs(string address)
         {
-            this.type = PMEType.Register;
-            this.address = address;
+            this.Type = PMEType.Register;
+            this.Address = address;
         }
         public PuppetMasterEventArgs(Event ev)
         {
-            this.type = PMEType.Notify;
-            this.ev = ev;
+            this.Type = PMEType.Notify;
+            this.Ev = ev;
         }
     }
 
-    public class SESDadQueue : MarshalByRefObject
-    {
-        private Queue<Event> eventQueue;
-        public SESDadQueue()
-        {
-            eventQueue = new Queue<Event>();
-        }
-    }
+    //public class SESDadQueue : MarshalByRefObject
+    //{
+    //    private Queue<Event> eventQueue;
+    //    public SESDadQueue()
+    //    {
+    //        eventQueue = new Queue<Event>();
+    //    }
+    //}
 
     [Serializable]
     public class Event

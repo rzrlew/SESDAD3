@@ -18,6 +18,7 @@ namespace SESDADBroker
         Queue<Event> eventQueue;
         RemoteBroker parentBroker = null;
         List<RemoteBroker> childBrokers = new List<RemoteBroker>();
+        List<string> topicList = new List<string>();
         string name;
 
         public static void Main(string[] args)
@@ -35,19 +36,42 @@ namespace SESDADBroker
             Broker bro = new Broker(configuration);
             bro.configuration = configuration;
             bro.Channel = channel;
-            Console.WriteLine("write [flood] for flooding of Event..." + Environment.NewLine + "write [quit] to terminate Broker process...");
+            Console.WriteLine(  "write [flood] for flooding of Event..." + Environment.NewLine 
+                                + "write [quit] to terminate Broker process..." + Environment.NewLine
+                                + "write [topic] to set subscribe interest..." + Environment.NewLine
+                                + "write [show] to print queue...");
             string s = Console.ReadLine();
             while (!s.Equals("quit"))
             {
+                if (s.Equals("topic"))
+                {
+                    Console.WriteLine("Insert interested topic...");
+                    string topic = Console.ReadLine();
+                    bro.addTopic(topic);
+                }
                 if (s.Equals("flood"))
                 {
-                    bro.Flood(new Event("lololollol", "hahahaha", bro.name));
+                    Console.WriteLine("insert: [Message] [Topic]...");
+                    string input = Console.ReadLine();
+                    String[] array = input.Split(' '); 
+                    bro.Flood(new Event(array[0], array[1], bro.name));
                 }
-                if (bro.remoteBroker.floodList.Any())
+                if (s.Equals("show"))
                 {
-                    Event e = bro.remoteBroker.floodList.Dequeue();
-                    Console.WriteLine(e.Message());
+                    Console.WriteLine("printing Queue...");
+                    while (bro.remoteBroker.floodList.Any())
+                    {
+                        Event e = bro.remoteBroker.floodList.Dequeue();
+                        if (bro.checkTopic(e.topic))
+                        {
+                            Console.WriteLine(e.Message());
+                        }
+                    }                                 
                 }
+                Console.WriteLine("write [flood] for flooding of Event..." + Environment.NewLine
+                                + "write [quit] to terminate Broker process..." + Environment.NewLine
+                                + "write [topic] to set subscribe interest..." + Environment.NewLine
+                                + "write [show] to print queue...");
                 s = Console.ReadLine();
             }
             Console.WriteLine("Ending Broker Process: " + bro.name);
@@ -90,6 +114,23 @@ namespace SESDADBroker
             set {   channel = value;    }
         }
 
+        public void addTopic(string topic)
+        {
+            topicList.Add(topic);
+        }
+
+        public bool checkTopic(string topic)
+        {
+            foreach (string s in topicList)
+            {
+                if (s.Equals(topic))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public bool isRoot() // checks if broker belongs to Root Node
         {
             return (parentBroker == null) ? true : false;
@@ -113,7 +154,7 @@ namespace SESDADBroker
         public void Flood(Event e)
         {
             string lastHopName = e.lastHop;
-            Console.WriteLine("Flooding event: " + e.Message() + " from " + e.lastHop + " to all children!");
+            //Console.WriteLine("Flooding event: " + e.Message() + " from " + e.lastHop + " to all children!");
             e.lastHop = name;
             remoteBroker.floodList.Enqueue(e);
             if (parentBroker != null && parentBroker.name != lastHopName)

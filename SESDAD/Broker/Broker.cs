@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Runtime.Remoting;
 using System.Runtime.Remoting.Channels;
 using System.Runtime.Remoting.Channels.Tcp;
+using System.Threading;
 using SESDAD;
 
 namespace SESDADBroker
@@ -152,6 +153,12 @@ namespace SESDADBroker
         }
 
         public void Flood(Event e)
+        {
+            Thread thr = new Thread(() => FloodWork(e));
+            thr.Start();
+        }
+
+        public void FloodWork(Event e)
         {
             string lastHopName = e.lastHop;
             //Console.WriteLine("Flooding event: " + e.Message() + " from " + e.lastHop + " to all children!");

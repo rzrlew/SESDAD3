@@ -54,7 +54,7 @@ namespace SESDAD
         {
             foreach(SESDADConfig slaveConfig in configList) 
             {
-                int nextSlavePort = ++slavePortCounter + 1000;
+                int nextSlavePort = ++slavePortCounter;
                 toShowMessages.Add("Slave for " + slaveConfig.SiteName + " is on port " + nextSlavePort);
                 Process.Start(TestConstants.puppetSlavePath, "tcp://localhost:" + puppetMasterPort + "/puppetmaster " + slaveConfig.SiteName + " " +  nextSlavePort);
             }
@@ -149,64 +149,4 @@ namespace SESDAD
             form.Invoke(new PuppetMasterFormEvent(form.appendToOutputWindow), arguments);
         }
     }
-
-    //private Site GetNextSite(StreamReader file)
-    //{
-    //    string line = file.ReadLine();
-    //    char[] siteName = new char[10];
-    //    line.CopyTo(line.LastIndexOf("Site") + 2, siteName, 0, 5);
-    //    Site site = new Site();
-    //    site.siteConfig.SiteName = siteName.ToString();
-
-    //    return site;
-    //}
-
-    //public class Tree
-    //{
-    //    Site rootNode = null;
-    //    public void CreateNextNode()
-    //    {
-
-    //    }
-    //}
-
-    //class Site
-    //{
-    //    List<Site> children;
-    //    Site parent;
-    //    public SESDADConfig siteConfig;
-
-    //    public List<Site> Children
-    //    {
-    //        get{return children;}
-    //        set{children = value;}
-    //    }
-
-    //    public Site Parent
-    //    {
-    //        get{return parent;}
-    //        set{parent = value;}
-    //    }
-    //}
-
-    //public class ConfigurationParser
-    //{
-    //    StreamReader file;
-
-    //    public ConfigurationParser(string fileName)
-    //    {
-    //        file = new StreamReader(File.Open(fileName, FileMode.Open));
-    //    }
-
-    //    private Site GetNextSite()
-    //    {
-    //        string line = file.ReadLine();
-    //        char[] siteName = new char[10];
-    //        line.CopyTo(line.LastIndexOf("Site") + 2, siteName, 0, 5);
-    //        Site site = new Site();
-    //        site.siteConfig.SiteName = siteName.ToString();
-
-    //        return site;
-    //    }
-    //}
 }

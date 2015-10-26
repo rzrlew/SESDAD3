@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,6 +20,8 @@ namespace SESDADBroker
         Queue<Event> eventQueue;
         RemoteBroker parentBroker = null;
         List<RemoteBroker> childBrokers = new List<RemoteBroker>();
+        List<SubscriptionInfo> subscriptionsList = new List<SubscriptionInfo>();
+
         List<string> topicList = new List<string>();
         string name;
 
@@ -29,7 +32,7 @@ namespace SESDADBroker
             ChannelServices.RegisterChannel(temp_channel, true);
 
             RemotePuppetSlave remotePuppetSlave = (RemotePuppetSlave) Activator.GetObject(typeof(RemotePuppetSlave), args[0]);
-            SESDADBrokerConfig configuration = remotePuppetSlave.GetConfiguration();
+            SESDADBrokerConfig configuration = (SESDADBrokerConfig) remotePuppetSlave.GetConfiguration();
             Console.WriteLine("Starting broker channel on port: " + new Uri(configuration.brokerAddress).Port);
             TcpChannel channel = new TcpChannel(new Uri(configuration.brokerAddress).Port);
             ChannelServices.UnregisterChannel(temp_channel);
@@ -85,6 +88,8 @@ namespace SESDADBroker
             configuration = config;
             remoteBroker = new RemoteBroker();
             remoteBroker.floodEvents += new NotifyEvent(Flood);
+            remoteBroker.OnSubscribe += new SubscriptionEvent(Subscription);
+            remoteBroker.OnUnsubscribe += new SubscriptionEvent(Unsubscription);
             eventQueue = new Queue<Event>();
             Name = config.brokerName;
             if (config.parentBrokerAddress != null)
@@ -99,6 +104,38 @@ namespace SESDADBroker
             }
             RemotingServices.Marshal(remoteBroker, this.name);
             Console.WriteLine("Broker is listening...");
+        }
+
+        public void Subscription(string topic, string address)
+        {
+            try
+            {
+                SubscriptionInfo info = SearchSubscription(address);
+                info.topics.Add(topic);
+            }
+            catch(NotImplementedException ex)
+            {
+                SubscriptionInfo subscription = new SubscriptionInfo(topic, address);
+                subscriptionsList.Add(subscription);
+            }
+        }
+
+        public void Unsubscription(string topic, string address)
+        {
+            SubscriptionInfo info = SearchSubscription(address);
+            info.topics.Remove(topic);
+        }
+
+        public SubscriptionInfo SearchSubscription(string address)
+        {
+            foreach(SubscriptionInfo info in subscriptionsList)
+            {
+                if (info.subscription_address.Equals(address))
+                {
+                    return info;
+                }
+            }
+            throw new NotImplementedException("No Subscription Found!");
         }
 
         public string Name
@@ -177,6 +214,21 @@ namespace SESDADBroker
                     child.Flood(e);
                 }
             }
+            foreach(string address in )
         }
+    }
+
+    public class SubscriptionInfo
+    {
+        public string subscription_address;
+        public List<string> topics = new List<string>();
+
+        public SubscriptionInfo(string topic, string address)
+        {
+            this.topics.Add(topic);
+            subscription_address = address;
+        }
+
+
     }
 }

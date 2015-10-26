@@ -7,14 +7,20 @@ using System.Threading;
 namespace SESDAD
 {
     public delegate void NotifyEvent(Event e);
+    public delegate void SubscriptionEvent(string topic, string address);
     public delegate void ConfigurationEvent(List<string> addresses);
     public delegate SESDADConfig SESDADconfiguration(string SiteName);
-    public delegate SESDADBrokerConfig SESDADBrokerConfiguration();
+    public delegate SESDADAbstractConfig SESDADBrokerConfiguration();
     public delegate string PuppetMasterEvent(PuppetMasterEventArgs args);
     public enum PMEType { Register, Notify, ConfigReq, Log }
 
+    /// <summary>
+    /// 
+    /// </summary>
     public class RemoteBroker : MarshalByRefObject
     {
+        public SubscriptionEvent OnSubscribe;
+        public SubscriptionEvent OnUnsubscribe;
         public NotifyEvent floodEvents;
         public NotifyEvent sendToRoot;
         public ConfigurationEvent setParentEvent;
@@ -32,18 +38,34 @@ namespace SESDAD
             Thread.Sleep(500);
             floodEvents(e);
         }
+
+        public void Subscribe(string topic, string address)
+        {
+            OnSubscribe(topic, address);
+        }
+
+        public void UnSubscribe(string topic, string address)
+        {
+            OnUnsubscribe(topic, address);
+        }
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
     public class RemotePuppetSlave : MarshalByRefObject
     {
         public SESDADBrokerConfiguration OnGetConfiguration;    // broker configuration delegate
-        public SESDADBrokerConfig GetConfiguration()
+        public SESDADAbstractConfig GetConfiguration()
         {
             return OnGetConfiguration();
         }
     }
 
-    public class PuppetMasterRemote : MarshalByRefObject
+    /// <summary>
+    /// 
+    /// </summary>
+    public class RemotePuppetMaster : MarshalByRefObject
     {
         public PuppetMasterEvent brokerSignIn;
         public SESDADconfiguration configRequest;
@@ -75,6 +97,20 @@ namespace SESDAD
         }
 
     }
+
+    public class RemoteSubsriber : MarshalByRefObject
+    {
+        public NotifyEvent OnNotifySubscription;
+        public void NotifySubscriptionEvent(Event e)
+        {
+            Console.WriteLine("Received event on topic: " + e.topic);
+            OnNotifySubscription(e);
+        }
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
     [Serializable]
     public class SESDADProcessConfig
     {
@@ -106,10 +142,22 @@ namespace SESDAD
     }
 
     [Serializable]
-    public class SESDADBrokerConfig
+    public abstract class SESDADAbstractConfig
     {
         public string brokerName;
         public string brokerAddress;
+    }
+
+    [Serializable]
+    public class SESDADPubSubConfig : SESDADAbstractConfig
+    {
+        public string name;
+        public string address;
+    }
+
+    [Serializable]
+    public class SESDADBrokerConfig : SESDADAbstractConfig
+    {      
         public string parentBrokerAddress;
         public List<string> childrenBrokerAddresses = new List<string>();
     }
@@ -257,7 +305,7 @@ namespace SESDAD
         }
         public string Message()
         {
-            return "Topic: " + topic + " || Message: " + eventMessage;
+            return "Topic: " + topic + Environment.NewLine + "Message: " + eventMessage;
         }
     }
 }

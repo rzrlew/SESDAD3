@@ -19,7 +19,7 @@ namespace SESDAD
         TcpChannel channel;
         int port;
         SESDADConfig configuration;
-        PuppetMasterRemote remotePuppetMaster;
+        RemotePuppetMaster remotePuppetMaster;
         RemotePuppetSlave remotePuppetSlave;
         string siteName;
         public static void Main(string[] args)
@@ -55,29 +55,44 @@ namespace SESDAD
 
             Console.WriteLine("Slave created Tcp Channel on port: " + portString);
             Console.WriteLine("Contacting PuppetMaster on: " + puppetMasterAddress);
-            remotePuppetMaster = (PuppetMasterRemote)Activator.GetObject(typeof(PuppetMasterRemote), puppetMasterAddress);
+            remotePuppetMaster = (RemotePuppetMaster)Activator.GetObject(typeof(RemotePuppetMaster), puppetMasterAddress);
             SESDADConfig siteConfig = remotePuppetMaster.GetConfiguration(siteName);
             Console.WriteLine("Site name: " + siteConfig.SiteName);
             StartupConfiguration(remotePuppetMaster.GetConfiguration(siteName));
         }
 
-        public SESDADBrokerConfig GetConfiguration()
+        public SESDADAbstractConfig GetConfiguration()
         {
             Console.WriteLine("Got a configuration request from broker.");
-            SESDADBrokerConfig brokerConf = new SESDADBrokerConfig();
+            
             foreach(SESDADProcessConfig config in configuration.ProcessConfigList)
             {
-                if(config.ProcessType == "broker")
+                switch (config.ProcessType)
                 {
-                    brokerConf.parentBrokerAddress = config.ProcessParentAddress;
-                    brokerConf.brokerAddress = config.ProcessAddress;
-                    brokerConf.brokerName = config.ProcessName;
-                    break;
+                    case "broker":
+                        {
+                            SESDADBrokerConfig brokerConf = new SESDADBrokerConfig();
+                            brokerConf.parentBrokerAddress = config.ProcessParentAddress;
+                            brokerConf.brokerAddress = config.ProcessAddress;
+                            brokerConf.brokerName = config.ProcessName;
+                            brokerConf.childrenBrokerAddresses = configuration.ChildBrokersAddresses;
+                            return brokerConf;
+                        }
+                    case "subscriber":
+                        {
+                            SESDADPubSubConfig pubSubConf = new SESDADPubSubConfig();
+                            pubSubConf.address = config.ProcessAddress;
+                            pubSubConf.name = config.ProcessName;
+                            pubSubConf.brokerAddress = config.ProcessParentAddress;
+                            return pubSubConf;
+                        }
+                    case default(string):
+                        {
+                            throw new NotImplementedException();
+                        }
                 }
             }
-            brokerConf.childrenBrokerAddresses = configuration.ChildBrokersAddresses;
-            Console.WriteLine("Sending broker " + brokerConf.brokerName + " it's configuration!");
-            return brokerConf;
+            throw new NotImplementedException();
         }
 
         private void StartupConfiguration(SESDADConfig config)
@@ -86,12 +101,24 @@ namespace SESDAD
             RemotingServices.Marshal(remotePuppetSlave, config.SiteName + "slave");
             foreach (SESDADProcessConfig processConf in configuration.ProcessConfigList)
             {
+                Console.WriteLine("Type: " + processConf.ProcessType);
                 switch (processConf.ProcessType)
                 {
                     case "broker":
-                        Console.WriteLine("Starting broker process!");
-                        Process.Start(TestConstants.brokerPath, "tcp://localhost:" + port + "/" + siteName + "slave");
-                        break;
+                        {
+                            Console.WriteLine("Starting broker process...");
+                            Process.Start(TestConstants.brokerPath, "tcp://localhost:" + port + "/" + siteName + "slave");
+                            break;
+                        }
+                        
+                    case "subscriber":
+                        {
+                            Console.WriteLine("Starting subscriber process...");
+                            Process.Start(TestConstants.subscriberPath, processConf.ProcessAddress + " " + processConf.ProcessParentAddress);
+                            // Process.Start(TestConstants.subscriberPath, "tcp://localhost:" + port + "/" + siteName + "slave");
+                            break;
+                        }
+                        
                 }
             }
         }

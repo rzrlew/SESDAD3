@@ -43,7 +43,7 @@ namespace SESDAD
             form.OnBajorasPrint += new PuppetMasterFormEvent(ShowMessage);
             TcpChannel channel = new TcpChannel(puppetMasterPort);
             ChannelServices.RegisterChannel(channel, true);
-            PuppetMasterRemote remotePM = new PuppetMasterRemote();
+            RemotePuppetMaster remotePM = new RemotePuppetMaster();
             remotePM.brokerSignIn += new PuppetMasterEvent(RegisterBroker);
             remotePM.configRequest += new SESDADconfiguration(searchConfigList);
             RemotingServices.Marshal(remotePM, "puppetmaster");
@@ -100,21 +100,35 @@ namespace SESDAD
 
                     case "Process":
                         {
-                            string parentName = null;
                             SESDADProcessConfig ProcessConf = new SESDADProcessConfig();
                             ProcessConf.ProcessName = args[1];
                             ProcessConf.ProcessType = args[3];
                             ProcessConf.ProcessAddress = args[7];
-                            SESDADConfig conf = searchConfigList(args[5]); // search for Configuration Class using Site Name
-                            parentName = conf.ParentSiteName;
-                            conf.ProcessConfigList.Add(ProcessConf); // adds Process Config to Site Configuration Class 
-
-                            if (parentName != "none") // only needed if not Root Node
+                            switch (args[3])
                             {
-                                SESDADConfig parentConf = searchConfigList(conf.ParentSiteName); // Parent Configuration Class
-                                parentConf.ChildBrokersAddresses.Add(args[7]); // Add process address to parent list
-                                ProcessConf.ProcessParentAddress = parentConf.searchBroker().ProcessAddress; // address of 'first' broker of Site
-                            }
+                                case "broker":
+                                    {
+                                        string parentName = null;                                   
+                                        
+                                        SESDADConfig conf = searchConfigList(args[5]); // search for Configuration Class using Site Name
+                                        parentName = conf.ParentSiteName;
+                                        conf.ProcessConfigList.Add(ProcessConf); // adds Process Config to Site Configuration Class 
+
+                                        if (parentName != "none") // only needed if not Root Node
+                                        {
+                                            SESDADConfig parentConf = searchConfigList(conf.ParentSiteName); // Parent Configuration Class
+                                            parentConf.ChildBrokersAddresses.Add(args[7]); // Add process address to parent list
+                                            ProcessConf.ProcessParentAddress = parentConf.searchBroker().ProcessAddress; // address of 'first' broker of Site
+                                        }
+                                        break;
+                                    }
+                                case "subscriber":
+                                    {                                       
+                                        ProcessConf.ProcessParentAddress = searchConfigList(args[5]).searchBroker().ProcessAddress;
+                                        searchConfigList(args[5]).ProcessConfigList.Add(ProcessConf);
+                                        break;
+                                    }
+                            }                           
                             break;
                         }
                 }

@@ -9,9 +9,7 @@ namespace SESDAD
     public delegate void NotifyEvent(Event e);
     public delegate void SubscriptionEvent(string topic, string address);
     public delegate void ConfigurationEvent(List<string> addresses);
-    public delegate void SESDADSlaveConfiguration(SESDADConfig config);
     public delegate SESDADConfig SESDADconfiguration(string SiteName);
-    public delegate SESDADConfig SESDADSlaveConfigDelegate();
     public delegate SESDADAbstractConfig SESDADBrokerConfiguration();
     public delegate string PuppetMasterEvent(PuppetMasterEventArgs args);
     public enum PMEType { Register, Notify, ConfigReq, Log }
@@ -58,7 +56,6 @@ namespace SESDAD
     public class RemotePuppetSlave : MarshalByRefObject
     {
         public SESDADBrokerConfiguration OnGetConfiguration;    // broker configuration delegate
-        //Broker calls this
         public SESDADAbstractConfig GetConfiguration()
         {
             return OnGetConfiguration();
@@ -70,15 +67,16 @@ namespace SESDAD
     /// </summary>
     public class RemotePuppetMaster : MarshalByRefObject
     {
-        public SESDADSlaveConfigDelegate slaveSignIn;
+        public PuppetMasterEvent brokerSignIn;
         public SESDADconfiguration configRequest;
         public PuppetMasterEvent OnLogMessage;
         static int startPort = 9000;
         int portCounter = 0;
 
-        public SESDADConfig Register()
+        public string Register(string address, string broker_name)
         {
-            return slaveSignIn();
+            PuppetMasterEventArgs args = new PuppetMasterEventArgs(address, broker_name);
+            return brokerSignIn(args);
         }
 
         public int GetNextPortNumber()

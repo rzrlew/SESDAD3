@@ -10,7 +10,7 @@ namespace SESDAD
     public delegate void SubscriptionEvent(string topic, string address);
     public delegate void ConfigurationEvent(List<string> addresses);
     public delegate SESDADConfig SESDADconfiguration(string SiteName);
-    public delegate SESDADAbstractConfig SESDADBrokerConfiguration();
+    public delegate SESDADProcessConfiguration SESDADprocessConfiguration();
     public delegate string PuppetMasterEvent(PuppetMasterEventArgs args);
     public enum PMEType { Register, Notify, ConfigReq, Log }
 
@@ -35,7 +35,6 @@ namespace SESDAD
 
         public void Flood(Event e)
         {
-            Thread.Sleep(500);
             floodEvents(e);
         }
 
@@ -55,8 +54,8 @@ namespace SESDAD
     /// </summary>
     public class RemotePuppetSlave : MarshalByRefObject
     {
-        public SESDADBrokerConfiguration OnGetConfiguration;    // broker configuration delegate
-        public SESDADAbstractConfig GetConfiguration()
+        public SESDADprocessConfiguration OnGetConfiguration;    // broker configuration delegate
+        public SESDADProcessConfiguration GetConfiguration()
         {
             return OnGetConfiguration();
         }
@@ -95,7 +94,6 @@ namespace SESDAD
             args.LogMessage = "[" + time.ToShortTimeString() + "]: " + message;
             OnLogMessage(args);
         }
-
     }
 
     public class RemoteSubsriber : MarshalByRefObject
@@ -103,7 +101,6 @@ namespace SESDAD
         public NotifyEvent OnNotifySubscription;
         public void NotifySubscriptionEvent(Event e)
         {
-            Console.WriteLine("Received event on topic: " + e.topic);
             OnNotifySubscription(e);
         }
     }
@@ -114,49 +111,30 @@ namespace SESDAD
     [Serializable]
     public class SESDADProcessConfig
     {
-        string processParentAddress;
-        string processName;
-        string processType;
-        string processAddress;
-
-        public string ProcessParentAddress
-        {
-            get {   return processParentAddress;    }
-            set {   processParentAddress = value;   }
-        }
-        public string ProcessName
-        {
-            get {   return processName; }
-            set {   processName = value;}
-        }
-        public string ProcessType
-        {
-            get { return processType; }
-            set { processType = value; }
-        }
-        public string ProcessAddress
-        {
-            get { return processAddress; }
-            set { processAddress = value; }
-        }
+        public string processParentAddress;
+        public string processName;
+        public string processType;
+        public string processAddress;
     }
 
     [Serializable]
-    public abstract class SESDADAbstractConfig
+    public abstract class SESDADProcessConfiguration
+    {
+        public string processParentAddress;
+        public string processName;
+        public string processType;
+        public string processAddress;
+    }
+
+    [Serializable]
+    public class SESDADPubSubConfig : SESDADProcessConfiguration
     {
         public string brokerName;
         public string brokerAddress;
     }
 
     [Serializable]
-    public class SESDADPubSubConfig : SESDADAbstractConfig
-    {
-        public string name;
-        public string address;
-    }
-
-    [Serializable]
-    public class SESDADBrokerConfig : SESDADAbstractConfig
+    public class SESDADBrokerConfig : SESDADProcessConfiguration
     {      
         public string parentBrokerAddress;
         public List<string> childrenBrokerAddresses = new List<string>();
@@ -165,54 +143,23 @@ namespace SESDAD
     [Serializable]
     public class SESDADConfig
     {
-        string siteName;
-        List<string> childrenSiteNames = new List<string>();       
-        List<SESDADProcessConfig> processConfigList = new List<SESDADProcessConfig>();
-        string parentSiteName;
-        string parentBrokerAddress;
-        List<string> childBrokersAddresses = new List<string>();
+        public string siteName;
+        public List<string> childrenSiteNames = new List<string>();
+        public List<SESDADProcessConfig> processConfigList = new List<SESDADProcessConfig>();
+        public string parentSiteName;
+        public string parentBrokerAddress;
+        public List<string> childBrokersAddresses = new List<string>();       
        
-        public string ParentBrokerAddress
-        {
-            get{ return parentBrokerAddress; }
-            set{ parentBrokerAddress = value; }
-        }
-        public string SiteName
-        {
-            get { return siteName; }
-            set { siteName = value; }
-        }
-        public string ParentSiteName
-        {
-            get { return parentSiteName; }
-            set { parentSiteName = value; }
-        }
-        public List<string> ChildrenSiteNames
-        {
-            get { return childrenSiteNames; }
-            set { childrenSiteNames = value; }
-        }
-        public List<SESDADProcessConfig> ProcessConfigList
-        {
-            get { return processConfigList; }
-            set { processConfigList = value; }
-        }
-        public List<string> ChildBrokersAddresses
-        {
-            get { return childBrokersAddresses; }
-            set { childBrokersAddresses = value; }
-        }
-
         public SESDADConfig(string siteName)
         {
-            this.SiteName = siteName;
+            this.siteName = siteName;
         }
 
         public SESDADProcessConfig searchBroker()
         {
             foreach(SESDADProcessConfig conf in processConfigList)
             {
-                if (conf.ProcessType.Equals("broker"))
+                if (conf.processType.Equals("broker"))
                 {
                     return conf;
                 }

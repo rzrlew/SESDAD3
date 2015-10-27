@@ -11,6 +11,7 @@ namespace SESDAD
     public delegate void ConfigurationEvent(List<string> addresses);
     public delegate SESDADConfig SESDADconfiguration(string SiteName);
     public delegate SESDADProcessConfiguration SESDADprocessConfiguration();
+    public delegate SESDADConfig SESDADSlaveConfigurationDelegate();
     public delegate string PuppetMasterEvent(PuppetMasterEventArgs args);
     public enum PMEType { Register, Notify, ConfigReq, Log }
 
@@ -66,21 +67,20 @@ namespace SESDAD
     /// </summary>
     public class RemotePuppetMaster : MarshalByRefObject
     {
-        public PuppetMasterEvent brokerSignIn;
+        public SESDADSlaveConfigurationDelegate slaveSignIn;
         public SESDADconfiguration configRequest;
         public PuppetMasterEvent OnLogMessage;
-        static int startPort = 9000;
+        static int slaveStartPort = 9000;
         int portCounter = 0;
 
-        public string Register(string address, string broker_name)
+        public SESDADConfig RegisterSlave()
         {
-            PuppetMasterEventArgs args = new PuppetMasterEventArgs(address, broker_name);
-            return brokerSignIn(args);
+            return slaveSignIn();
         }
 
         public int GetNextPortNumber()
         {
-            return ++portCounter + startPort;
+            return ++portCounter + slaveStartPort;
         }
         
         public SESDADConfig GetConfiguration(string siteName)
@@ -143,6 +143,7 @@ namespace SESDAD
     [Serializable]
     public class SESDADConfig
     {
+        public bool isDone = false;
         public string siteName;
         public List<string> childrenSiteNames = new List<string>();
         public List<SESDADProcessConfig> processConfigList = new List<SESDADProcessConfig>();

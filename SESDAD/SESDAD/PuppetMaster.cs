@@ -22,7 +22,6 @@ namespace SESDAD
         List<SESDADConfig> configList = new List<SESDADConfig>();
         private List<string> toShowMessages = new List<string>();
         private int puppetMasterPort = 9000;
-        private int slavePortCounter = 5000;
 
         /// <summary>
         /// The main entry point for the application.
@@ -33,7 +32,6 @@ namespace SESDAD
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             PuppetMaster puppetMaster = new PuppetMaster();
-            puppetMaster.BootStrapSystem();
             Application.Run(puppetMaster.form);
         }
 
@@ -44,21 +42,23 @@ namespace SESDAD
             TcpChannel channel = new TcpChannel(puppetMasterPort);
             ChannelServices.RegisterChannel(channel, true);
             RemotePuppetMaster remotePM = new RemotePuppetMaster();
-            remotePM.brokerSignIn += new PuppetMasterEvent(RegisterBroker);
+            remotePM.slaveSignIn += new SESDADSlaveConfigurationDelegate(RegisterSlave);
             remotePM.configRequest += new SESDADconfiguration(searchConfigList);
             RemotingServices.Marshal(remotePM, "puppetmaster");
             parseConfigFile(TestConstants.configFilePath);
         }
 
-        private void BootStrapSystem()  // launches a PuppetSlave process for each Configuration Class created after reading config file
+         SESDADConfig RegisterSlave()   // saves broker address in Hash
         {
-            foreach(SESDADConfig slaveConfig in configList) 
+            foreach(SESDADConfig config in configList)
             {
-                int nextSlavePort = ++slavePortCounter;
-                toShowMessages.Add("Slave for " + slaveConfig.siteName + " is on port " + nextSlavePort);
-                Process.Start(  TestConstants.puppetSlavePath, "tcp://localhost:" + puppetMasterPort + 
-                                "/puppetmaster " + slaveConfig.siteName + " " +  nextSlavePort);
+                if (!config.isDone)
+                {
+                    config.isDone = true;
+                    return config;
+                }
             }
+            throw new NotImplementedException("No configuration left for slave!");
         }
 
         private SESDADConfig searchConfigList(string SiteName)  // returns the Config Class of specified Site
@@ -139,14 +139,6 @@ namespace SESDAD
         private StreamReader openConfigFile(string fileName)
         {
             return new StreamReader(File.Open(fileName, FileMode.Open));
-        }
-
-        string RegisterBroker(PuppetMasterEventArgs args)   // saves broker address in Hash
-        {
-            ShowMessage("Broker \"" + args.BrokerName + "\" at \"" + args.Address + "\" signing in!");
-            string brokerName = args.SiteName;
-            brokerHash.Add(brokerName , args.Address);
-            return brokerName;
         }
 
         void ShowMessage(string msg)    // print given string in puppet master form

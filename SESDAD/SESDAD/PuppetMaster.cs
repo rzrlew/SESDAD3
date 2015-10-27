@@ -20,7 +20,9 @@ namespace SESDAD
         PuppetMasterForm form;
         IDictionary<string, string> brokerHash = new Dictionary<string, string>();
         List<SESDADConfig> configList = new List<SESDADConfig>();
+        List<SESDADConfig> doneConfigs = new List<SESDADConfig>();
         private List<string> toShowMessages = new List<string>();
+        RemotePuppetMaster remotePM;
         private int puppetMasterPort = 9000;
         private int slavePortCounter = 5000;
 
@@ -33,7 +35,6 @@ namespace SESDAD
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             PuppetMaster puppetMaster = new PuppetMaster();
-            puppetMaster.BootStrapSystem();
             Application.Run(puppetMaster.form);
         }
 
@@ -43,22 +44,22 @@ namespace SESDAD
             form.OnBajorasPrint += new PuppetMasterFormEvent(ShowMessage);
             TcpChannel channel = new TcpChannel(puppetMasterPort);
             ChannelServices.RegisterChannel(channel, true);
-            RemotePuppetMaster remotePM = new RemotePuppetMaster();
-            remotePM.brokerSignIn += new PuppetMasterEvent(RegisterBroker);
+            remotePM = new RemotePuppetMaster();
+            remotePM.slaveSignIn += new SESDADSlaveConfigDelegate(GetNextSlaveConfig);
             remotePM.configRequest += new SESDADconfiguration(searchConfigList);
             RemotingServices.Marshal(remotePM, "puppetmaster");
             parseConfigFile(TestConstants.configFilePath);
         }
 
-        private void BootStrapSystem()  // launches a PuppetSlave process for each Configuration Class created after reading config file
-        {
-            foreach(SESDADConfig slaveConfig in configList) 
-            {
-                int nextSlavePort = ++slavePortCounter;
-                toShowMessages.Add("Slave for " + slaveConfig.SiteName + " is on port " + nextSlavePort);
-                Process.Start(TestConstants.puppetSlavePath, "tcp://localhost:" + puppetMasterPort + "/puppetmaster " + slaveConfig.SiteName + " " +  nextSlavePort);
-            }
-        }
+        //private void BootStrapSystem()  // launches a PuppetSlave process for each Configuration Class created after reading config file
+        //{
+        //    foreach(SESDADConfig slaveConfig in configList) 
+        //    {
+        //        int nextSlavePort = ++slavePortCounter;
+        //        toShowMessages.Add("Slave for " + slaveConfig.SiteName + " is on port " + nextSlavePort);
+        //        Process.Start(TestConstants.puppetSlavePath, "tcp://localhost:" + puppetMasterPort + "/puppetmaster " + slaveConfig.SiteName + " " +  nextSlavePort);
+        //    }
+        //}
 
         private SESDADConfig searchConfigList(string SiteName)  // returns the Config Class of specified Site
         {
@@ -140,12 +141,27 @@ namespace SESDAD
             return new StreamReader(File.Open(fileName, FileMode.Open));
         }
 
-        string RegisterBroker(PuppetMasterEventArgs args)   // saves broker address in Hash
+
+        private SESDADConfig GetNextSlaveConfig()
         {
-            ShowMessage("Broker \"" + args.BrokerName + "\" at \"" + args.Address + "\" signing in!");
-            string brokerName = args.SiteName;
-            brokerHash.Add(brokerName , args.Address);
-            return brokerName;
+            foreach (SESDADConfig config in configList)
+            {
+                bool alreaydDone = false;
+                foreach (SESDADConfig doneConfig in doneConfigs)
+                {
+                    if (config == doneConfig)
+                    {
+                        alreaydDone = true;
+                        break;
+                    }
+                }
+                if (!alreaydDone)
+                {
+                    doneConfigs.Add(config);
+                    return config;
+                }
+            }
+            return null;
         }
 
         void ShowMessage(string msg)    // print given string in puppet master form

@@ -10,24 +10,23 @@ using System.Runtime.Remoting.Channels.Tcp;
 using System.Collections;
 using System.Runtime.Remoting.Messaging;
 using System.Net;
-
+using System.Net.Sockets;
 
 namespace SESDAD
 {
     class PuppetSlave
     {
-        TcpChannel channel;
         int port;
+        TcpChannel channel;
         SESDADConfig configuration;
         RemotePuppetMaster remotePuppetMaster;
         RemotePuppetSlave remotePuppetSlave;
-        string siteName;
         public static void Main(string[] args)
         {
-            if (args.Count() == 3)
+            if (args.Count() == 1)
             {
                 Console.WriteLine("---Starting Slave---");
-                PuppetSlave pptSlave = new PuppetSlave(args[0], args[1], args[2]);
+                PuppetSlave pptSlave = new PuppetSlave(args[0]); //arg[0] -> puppet master address
             }
             else
             {
@@ -36,29 +35,39 @@ namespace SESDAD
             Console.ReadLine();
         }
 
-        public PuppetSlave(string puppetMasterAddress, string siteName, string portString)
+        private IPAddress LocalIPAddress()
         {
-            this.siteName = siteName;
+            if (!System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable())
+            {
+                return null;
+            }
+
+            IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
+            return host.AddressList.FirstOrDefault(ip => ip.AddressFamily == AddressFamily.InterNetwork);
+        }
+
+        public PuppetSlave(string puppetMasterAddress)
+        {
+            Console.WriteLine("Getting configuration from PuppetMaster on: " + puppetMasterAddress);
             remotePuppetSlave = new RemotePuppetSlave();
             remotePuppetSlave.OnGetConfiguration += new SESDADBrokerConfiguration(GetConfiguration);
-            port = int.Parse(portString);
-
-            //To provide the ability to get the client ip address.
-            BinaryServerFormatterSinkProvider bp = new BinaryServerFormatterSinkProvider();
-            BinaryClientFormatterSinkProvider c_sink = new BinaryClientFormatterSinkProvider();
-            ClientIPServerSinkProvider csp = new ClientIPServerSinkProvider();
-            csp.Next = bp;
-            Hashtable ht = new Hashtable();
-            ht.Add("port", portString);
-            channel = new TcpChannel(ht, c_sink, csp);
+            TcpChannel temp_channel = new TcpChannel();
+            ChannelServices.RegisterChannel(temp_channel, true);
+            remotePuppetMaster = (RemotePuppetMaster) Activator.GetObject(typeof(RemotePuppetMaster), puppetMasterAddress);
+            port = remotePuppetMaster.GetNextPortNumber();
+            channel = new TcpChannel(port);
+            ChannelServices.UnregisterChannel(temp_channel);
             ChannelServices.RegisterChannel(channel, true);
-
-            Console.WriteLine("Slave created Tcp Channel on port: " + portString);
-            Console.WriteLine("Contacting PuppetMaster on: " + puppetMasterAddress);
-            remotePuppetMaster = (RemotePuppetMaster)Activator.GetObject(typeof(RemotePuppetMaster), puppetMasterAddress);
-            SESDADConfig siteConfig = remotePuppetMaster.GetConfiguration(siteName);
-            Console.WriteLine("Site name: " + siteConfig.SiteName);
-            StartupConfiguration(remotePuppetMaster.GetConfiguration(siteName));
+            Console.WriteLine(LocalIPAddress().ToString());
+            Console.WriteLine("Slave created Tcp Channel on port: " + port);
+            configuration = remotePuppetMaster.Register();
+            RemotingServices.Marshal(remotePuppetSlave, configuration.SiteName + "slave");
+            Console.WriteLine("Site name: " + configuration.SiteName);
+            Console.WriteLine("Press <Enter> to get configuration from puppetmaster...");
+            Console.ReadLine();
+            StartupConfiguration();
+            Console.WriteLine("Press <Enter> to exit...");
+            Console.ReadLine();
         }
 
         public SESDADAbstractConfig GetConfiguration()
@@ -95,10 +104,8 @@ namespace SESDAD
             throw new NotImplementedException();
         }
 
-        private void StartupConfiguration(SESDADConfig config)
+        private void StartupConfiguration()
         {
-            configuration = config;
-            RemotingServices.Marshal(remotePuppetSlave, config.SiteName + "slave");
             foreach (SESDADProcessConfig processConf in configuration.ProcessConfigList)
             {
                 Console.WriteLine("Type: " + processConf.ProcessType);
@@ -107,7 +114,7 @@ namespace SESDAD
                     case "broker":
                         {
                             Console.WriteLine("Starting broker process...");
-                            Process.Start(TestConstants.brokerPath, "tcp://localhost:" + port + "/" + siteName + "slave");
+                            Process.Start(TestConstants.brokerPath, "tcp://localhost:" + port + "/" + configuration.SiteName + "slave");
                             break;
                         }
                         
@@ -115,7 +122,6 @@ namespace SESDAD
                         {
                             Console.WriteLine("Starting subscriber process...");
                             Process.Start(TestConstants.subscriberPath, processConf.ProcessAddress + " " + processConf.ProcessParentAddress);
-                            // Process.Start(TestConstants.subscriberPath, "tcp://localhost:" + port + "/" + siteName + "slave");
                             break;
                         }
                         

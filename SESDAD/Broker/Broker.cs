@@ -33,8 +33,8 @@ namespace SESDADBroker
 
             RemotePuppetSlave remotePuppetSlave = (RemotePuppetSlave) Activator.GetObject(typeof(RemotePuppetSlave), args[0]);
             SESDADBrokerConfig configuration = (SESDADBrokerConfig) remotePuppetSlave.GetConfiguration();
-            Console.WriteLine("Starting broker channel on port: " + new Uri(configuration.brokerAddress).Port);
-            TcpChannel channel = new TcpChannel(new Uri(configuration.brokerAddress).Port);
+            Console.WriteLine("Starting broker channel on port: " + new Uri(configuration.processAddress).Port);
+            TcpChannel channel = new TcpChannel(new Uri(configuration.processAddress).Port);
             ChannelServices.UnregisterChannel(temp_channel);
             ChannelServices.RegisterChannel(channel, true);
             Broker bro = new Broker(configuration);
@@ -81,14 +81,14 @@ namespace SESDADBroker
         public Broker(SESDADBrokerConfig config)
         {
             Console.WriteLine("---Starting Broker---");
-            Console.WriteLine("Creating remote broker on " + config.brokerAddress);
+            Console.WriteLine("Creating remote broker on " + config.processAddress);
             configuration = config;
             remoteBroker = new RemoteBroker();
             remoteBroker.floodEvents += new NotifyEvent(Flood);
             remoteBroker.OnSubscribe += new SubscriptionEvent(Subscription);
             remoteBroker.OnUnsubscribe += new SubscriptionEvent(Unsubscription);
             eventQueue = new Queue<Event>();
-            Name = config.brokerName;
+            Name = config.processName;
             if (config.parentBrokerAddress != null)
             {
                 List<string> pList = new List<string>();
@@ -212,6 +212,7 @@ namespace SESDADBroker
         public void FloodWork(Event e)
         {
             string lastHopName = e.lastHop;
+            
             //Console.WriteLine("Flooding event: " + e.Message() + " from " + e.lastHop + " to all children!");
             e.lastHop = name;
             //remoteBroker.floodList.Enqueue(e);

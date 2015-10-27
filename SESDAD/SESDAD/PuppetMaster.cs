@@ -55,8 +55,9 @@ namespace SESDAD
             foreach(SESDADConfig slaveConfig in configList) 
             {
                 int nextSlavePort = ++slavePortCounter;
-                toShowMessages.Add("Slave for " + slaveConfig.SiteName + " is on port " + nextSlavePort);
-                Process.Start(TestConstants.puppetSlavePath, "tcp://localhost:" + puppetMasterPort + "/puppetmaster " + slaveConfig.SiteName + " " +  nextSlavePort);
+                toShowMessages.Add("Slave for " + slaveConfig.siteName + " is on port " + nextSlavePort);
+                Process.Start(  TestConstants.puppetSlavePath, "tcp://localhost:" + puppetMasterPort + 
+                                "/puppetmaster " + slaveConfig.siteName + " " +  nextSlavePort);
             }
         }
 
@@ -64,7 +65,7 @@ namespace SESDAD
         {
             foreach(SESDADConfig c in configList)
             {
-                if (c.SiteName.Equals(SiteName))
+                if (c.siteName.Equals(SiteName))
                 {
                     return c;
                 }
@@ -86,12 +87,12 @@ namespace SESDAD
                     case "Site":
                         {
                             SESDADConfig conf = new SESDADConfig(args[1]);
-                            conf.ParentSiteName = args[3];
+                            conf.parentSiteName = args[3];
                             foreach (SESDADConfig c in configList)
                             {
-                                if (c.SiteName.Equals(args[3])) // search for Parent Site
+                                if (c.siteName.Equals(args[3])) // search for Parent Site
                                 {
-                                    c.ChildrenSiteNames.Add(conf.SiteName); // add siteName to parent node child Name List 
+                                    c.childrenSiteNames.Add(conf.siteName); // add siteName to parent node child Name List 
                                 }
                             }
                             configList.Add(conf);
@@ -101,9 +102,9 @@ namespace SESDAD
                     case "Process":
                         {
                             SESDADProcessConfig ProcessConf = new SESDADProcessConfig();
-                            ProcessConf.ProcessName = args[1];
-                            ProcessConf.ProcessType = args[3];
-                            ProcessConf.ProcessAddress = args[7];
+                            ProcessConf.processName = args[1];
+                            ProcessConf.processType = args[3];
+                            ProcessConf.processAddress = args[7];
                             switch (args[3])
                             {
                                 case "broker":
@@ -111,21 +112,21 @@ namespace SESDAD
                                         string parentName = null;                                   
                                         
                                         SESDADConfig conf = searchConfigList(args[5]); // search for Configuration Class using Site Name
-                                        parentName = conf.ParentSiteName;
-                                        conf.ProcessConfigList.Add(ProcessConf); // adds Process Config to Site Configuration Class 
+                                        parentName = conf.parentSiteName;
+                                        conf.processConfigList.Add(ProcessConf); // adds Process Config to Site Configuration Class 
 
                                         if (parentName != "none") // only needed if not Root Node
                                         {
-                                            SESDADConfig parentConf = searchConfigList(conf.ParentSiteName); // Parent Configuration Class
-                                            parentConf.ChildBrokersAddresses.Add(args[7]); // Add process address to parent list
-                                            ProcessConf.ProcessParentAddress = parentConf.searchBroker().ProcessAddress; // address of 'first' broker of Site
+                                            SESDADConfig parentConf = searchConfigList(conf.parentSiteName); // Parent Configuration Class
+                                            parentConf.childBrokersAddresses.Add(args[7]); // Add process address to parent list
+                                            ProcessConf.processParentAddress = parentConf.searchBroker().processAddress; // address of 'first' broker of Site
                                         }
                                         break;
                                     }
                                 case "subscriber":
                                     {                                       
-                                        ProcessConf.ProcessParentAddress = searchConfigList(args[5]).searchBroker().ProcessAddress;
-                                        searchConfigList(args[5]).ProcessConfigList.Add(ProcessConf);
+                                        ProcessConf.processParentAddress = searchConfigList(args[5]).searchBroker().processAddress;
+                                        searchConfigList(args[5]).processConfigList.Add(ProcessConf);
                                         break;
                                     }
                             }                           

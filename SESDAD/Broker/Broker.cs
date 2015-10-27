@@ -191,7 +191,22 @@ namespace SESDADBroker
         public void Flood(Event e)
         {
             Thread thr = new Thread(() => FloodWork(e));
-            thr.Start();      
+            thr.Start();
+            if (subscriptionsList.Any())
+            {
+                foreach (SubscriptionInfo info in subscriptionsList)
+                {
+                    foreach (string topic in info.topics)
+                    {
+                        if (e.topic.Equals(topic))
+                        {
+                            Console.WriteLine("Subscriber Address: " + info.subscription_address);
+                            RemoteSubsriber subscriber = (RemoteSubsriber)Activator.GetObject(typeof(RemoteSubsriber), info.subscription_address);
+                            subscriber.NotifySubscriptionEvent(e);
+                        }
+                    }
+                }
+            }
         }
 
         public void FloodWork(Event e)
@@ -211,21 +226,6 @@ namespace SESDADBroker
                 {
                     Console.WriteLine("Sending event to " + child.name);
                     child.Flood(e);
-                }
-            }
-            if (subscriptionsList.Any())
-            {
-                foreach (SubscriptionInfo info in subscriptionsList)
-                {
-                    foreach (string topic in info.topics)
-                    {
-                        if (e.topic.Equals(topic))
-                        {
-                            Console.WriteLine("Subscriber Address: " + info.subscription_address);
-                            RemoteSubsriber subscriber = (RemoteSubsriber)Activator.GetObject(typeof(RemoteSubsriber), info.subscription_address);
-                            subscriber.NotifySubscriptionEvent(e);
-                        }
-                    }
                 }
             }
         }

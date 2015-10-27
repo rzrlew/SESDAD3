@@ -95,7 +95,6 @@ namespace SESDAD
             args.LogMessage = "[" + time.ToShortTimeString() + "]: " + message;
             OnLogMessage(args);
         }
-
     }
 
     public class RemoteSubsriber : MarshalByRefObject
@@ -103,7 +102,6 @@ namespace SESDAD
         public NotifyEvent OnNotifySubscription;
         public void NotifySubscriptionEvent(Event e)
         {
-            Console.WriteLine("Received event on topic: " + e.topic);
             OnNotifySubscription(e);
         }
     }

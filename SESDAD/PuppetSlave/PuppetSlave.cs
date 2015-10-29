@@ -76,6 +76,14 @@ namespace SESDAD
                             pubSubConf.brokerAddress = config.processParentAddress;
                             return pubSubConf;
                         }
+                    case "publisher":
+                        {
+                            SESDADPubSubConfig pubSubConf = new SESDADPubSubConfig();
+                            pubSubConf.processAddress = config.processAddress;
+                            pubSubConf.processName = config.processName;
+                            pubSubConf.brokerAddress = config.processParentAddress;
+                            return pubSubConf;
+                        }
                     case default(string):
                         {
                             throw new NotImplementedException();
@@ -107,7 +115,14 @@ namespace SESDAD
                             Process.Start(TestConstants.subscriberPath, processConf.processAddress + " " + processConf.processParentAddress);
                             break;
                         }
-                        
+
+                    case "publisher":
+                        {
+                            Console.WriteLine(processConf.processAddress + Environment.NewLine + processConf.processParentAddress);
+                            Console.WriteLine("Starting publisher process...");
+                            Process.Start(TestConstants.publisherPath, processConf.processAddress + " " + processConf.processParentAddress);
+                            break;
+                        }
                 }
             }
         }

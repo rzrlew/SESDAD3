@@ -7,7 +7,7 @@ using System.Threading;
 namespace SESDAD
 {
     public delegate void NotifyEvent(Event e);
-    public delegate void SubscriptionEvent(string topic, string address);
+    public delegate void PubSubEventDelegate(string topic, string address);
     public delegate void ConfigurationEvent(List<string> addresses);
     public delegate SESDADConfig SESDADconfiguration(string SiteName);
     public delegate SESDADProcessConfiguration SESDADprocessConfiguration();
@@ -20,8 +20,9 @@ namespace SESDAD
     /// </summary>
     public class RemoteBroker : MarshalByRefObject
     {
-        public SubscriptionEvent OnSubscribe;
-        public SubscriptionEvent OnUnsubscribe;
+        public PubSubEventDelegate OnSubscribe;
+        public PubSubEventDelegate OnUnsubscribe;
+        public PubSubEventDelegate OnAdvertise;
         public NotifyEvent floodEvents;
         public NotifyEvent sendToRoot;
         public ConfigurationEvent setParentEvent;
@@ -37,6 +38,11 @@ namespace SESDAD
         public void Flood(Event e)
         {
             floodEvents(e);
+        }
+
+        public void Advertise(string topic, string address)
+        {
+            OnAdvertise(topic, address);
         }
 
         public void Subscribe(string topic, string address)

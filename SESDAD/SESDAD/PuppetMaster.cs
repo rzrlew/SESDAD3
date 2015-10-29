@@ -124,6 +124,12 @@ namespace SESDAD
                                         break;
                                     }
                                 case "subscriber":
+                                    {
+                                        ProcessConf.processParentAddress = searchConfigList(args[5]).searchBroker().processAddress;
+                                        searchConfigList(args[5]).processConfigList.Add(ProcessConf);
+                                        break;
+                                    }
+                                case "publisher":
                                     {                                       
                                         ProcessConf.processParentAddress = searchConfigList(args[5]).searchBroker().processAddress;
                                         searchConfigList(args[5]).processConfigList.Add(ProcessConf);

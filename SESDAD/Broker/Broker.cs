@@ -21,6 +21,7 @@ namespace SESDADBroker
         RemoteBroker parentBroker = null;
         List<RemoteBroker> childBrokers = new List<RemoteBroker>();
         List<SubscriptionInfo> subscriptionsList = new List<SubscriptionInfo>();
+        List<PublisherInfo> publicationList = new List<PublisherInfo>();
 
         List<string> topicList = new List<string>();
         string name;
@@ -39,42 +40,9 @@ namespace SESDADBroker
             ChannelServices.RegisterChannel(channel, true);
             Broker bro = new Broker(configuration);
             bro.configuration = configuration;
-            bro.Channel = channel;
-            Console.WriteLine(  "write [flood] for flooding of Event..." + Environment.NewLine 
-                                + "write [quit] to terminate Broker process..." + Environment.NewLine);
-            string s = Console.ReadLine();
-            while (!s.Equals("quit"))
-            {
-                //if (s.Equals("topic"))
-                //{
-                //    Console.WriteLine("Insert interested topic...");
-                //    string topic = Console.ReadLine();
-                //    bro.addTopic(topic);
-                //}
-                if (s.Equals("flood"))
-                {
-                    Console.WriteLine("insert: [Topic]...");
-                    string topic = Console.ReadLine();
-                    Console.WriteLine("insert: [Message]...");
-                    string message = Console.ReadLine();
-                    bro.Flood(new Event(message, topic, bro.name));
-                }
-                //if (s.Equals("show"))
-                //{
-                //    Console.WriteLine("printing Queue...");
-                //    while (bro.remoteBroker.floodList.Any())
-                //    {
-                //        Event e = bro.remoteBroker.floodList.Dequeue();
-                //        if (bro.checkTopic(e.topic))
-                //        {
-                //            Console.WriteLine(e.Message());
-                //        }
-                //    }                                 
-                //}
-                Console.WriteLine("write [flood] for flooding of Event..." + Environment.NewLine
-                                + "write [quit] to terminate Broker process..." + Environment.NewLine);
-                s = Console.ReadLine();
-            }
+            bro.Channel = channel;           
+            Console.WriteLine("press key to terminate...");
+            Console.ReadLine();
             Console.WriteLine("Ending Broker Process: " + bro.name);
         }
 
@@ -85,8 +53,9 @@ namespace SESDADBroker
             configuration = config;
             remoteBroker = new RemoteBroker();
             remoteBroker.floodEvents += new NotifyEvent(Flood);
-            remoteBroker.OnSubscribe += new SubscriptionEvent(Subscription);
-            remoteBroker.OnUnsubscribe += new SubscriptionEvent(Unsubscription);
+            remoteBroker.OnSubscribe += new PubSubEventDelegate(Subscription);
+            remoteBroker.OnUnsubscribe += new PubSubEventDelegate(Unsubscription);
+            remoteBroker.OnAdvertise += new PubSubEventDelegate(AdvertisePublish);
             eventQueue = new Queue<Event>();
             Name = config.processName;
             if (config.parentBrokerAddress != null)
@@ -103,19 +72,44 @@ namespace SESDADBroker
             Console.WriteLine("Broker is listening...");
         }
 
+        public void AdvertisePublish(string topic, string address)  // TODO: Send advertisement to root node
+        {
+            Thread thr = new Thread(() => AdvertisePublishWork(topic, address));
+            thr.Start();
+        }
+
+        public void AdvertisePublishWork(string topic, string address)  // TODO: Send advertisement to root node
+        {
+            try
+            {
+                PublisherInfo info = SearchPublication(address);
+                info.topics.Add(topic);
+            }
+            catch (NotImplementedException)
+            {
+                PublisherInfo info = new PublisherInfo(topic, address);
+                publicationList.Add(info);
+            }
+            finally
+            {
+                if (!isRoot())
+                {
+                    parentBroker.OnAdvertise(topic, address);
+                }
+            }
+        }
+
         public void Subscription(string topic, string address)
         {
             try
             {
                 SubscriptionInfo info = SearchSubscription(address);
                 info.topics.Add(topic);
-                Console.WriteLine("subscription address: " + SearchSubscription(address).subscription_address);
             }
             catch(NotImplementedException)
             {
-                SubscriptionInfo subscription = new SubscriptionInfo(topic, address);
-                subscriptionsList.Add(subscription);
-                Console.WriteLine("subscription address: " + SearchSubscription(address).subscription_address);
+                SubscriptionInfo info = new SubscriptionInfo(topic, address);
+                subscriptionsList.Add(info);
             }
         }
 
@@ -123,6 +117,18 @@ namespace SESDADBroker
         {
             SubscriptionInfo info = SearchSubscription(address);
             info.topics.Remove(topic);
+        }
+
+        public PublisherInfo SearchPublication(string address)
+        {
+            foreach(PublisherInfo info in publicationList)
+            {
+                if (info.publication_address.Equals(address))
+                {
+                    return info;
+                }
+            }
+            throw new NotImplementedException("No publication found...");
         }
 
         public SubscriptionInfo SearchSubscription(string address)
@@ -134,7 +140,7 @@ namespace SESDADBroker
                     return info;
                 }
             }
-            throw new NotImplementedException("No Subscription Found!");
+            throw new NotImplementedException("No Subscription Found...");
         }
 
         public string Name
@@ -188,6 +194,28 @@ namespace SESDADBroker
             }
         }
 
+        public bool checkTopicInterest(Event e, string topic)
+        {
+            string[] eventArgs = e.topic.Split('/');
+            string[] topicArgs = topic.Split('/');
+            if (e.topic.Equals(topic))  // Event and Subscription topic are the same
+            {
+                return true;
+            }
+            if (eventArgs.Count() < topicArgs.Count())  
+            {
+                return false;
+            }
+            for(int i = 0; i < topicArgs.Count(); i++)
+            {
+                if (!eventArgs[i].Equals(topicArgs[i]))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         public void Flood(Event e)
         {
             Thread thr = new Thread(() => FloodWork(e));
@@ -198,7 +226,7 @@ namespace SESDADBroker
                 {
                     foreach (string topic in info.topics)
                     {
-                        if (e.topic.Equals(topic))
+                        if (checkTopicInterest(e, topic))
                         {
                             Console.WriteLine("Subscriber Address: " + info.subscription_address);
                             RemoteSubsriber subscriber = (RemoteSubsriber)Activator.GetObject(typeof(RemoteSubsriber), info.subscription_address);
@@ -232,6 +260,18 @@ namespace SESDADBroker
         }
     }
 
+    public class PublisherInfo
+    {
+        public string publication_address;
+        public List<string> topics = new List<string>();
+
+        public PublisherInfo(string topic, string address)
+        {
+            topics.Add(topic);
+            publication_address = address;
+        }
+    }
+
     public class SubscriptionInfo
     {
         public string subscription_address;
@@ -242,7 +282,5 @@ namespace SESDADBroker
             topics.Add(topic);
             subscription_address = address;
         }
-
-
     }
 }

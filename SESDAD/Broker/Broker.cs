@@ -14,17 +14,18 @@ namespace SESDADBroker
 {
     public class Broker
     {
+        string name;
         SESDADBrokerConfig configuration;
         TcpChannel channel;
-        RemoteBroker remoteBroker;
-        Queue<Event> eventQueue;
+        RemoteBroker remoteBroker;  
         RemoteBroker parentBroker = null;
         List<RemoteBroker> childBrokers = new List<RemoteBroker>();
-        List<SubscriptionInfo> subscriptionsList = new List<SubscriptionInfo>();
+
+        List<SubscriptionInfo> subscriptionsList = new List<SubscriptionInfo>();// stores information regarding subscriptions[subscriber][topic]  
         List<PublisherInfo> publicationList = new List<PublisherInfo>();
 
-        List<string> topicList = new List<string>();
-        string name;
+        List<Event> FIFOWaitQueue = new List<Event>();
+        
 
         public static void Main(string[] args)
         {
@@ -56,7 +57,6 @@ namespace SESDADBroker
             remoteBroker.OnSubscribe += new PubSubEventDelegate(Subscription);
             remoteBroker.OnUnsubscribe += new PubSubEventDelegate(Unsubscription);
             remoteBroker.OnAdvertise += new PubSubEventDelegate(AdvertisePublish);
-            eventQueue = new Queue<Event>();
             Name = config.processName;
             if (config.parentBrokerAddress != null)
             {
@@ -80,22 +80,10 @@ namespace SESDADBroker
 
         public void AdvertisePublishWork(string topic, string address)  // TODO: Send advertisement to root node
         {
-            try
+            PublisherInfo info = new PublisherInfo(topic, address);
+            if (!isRoot())
             {
-                PublisherInfo info = SearchPublication(address);
-                info.topics.Add(topic);
-            }
-            catch (NotImplementedException)
-            {
-                PublisherInfo info = new PublisherInfo(topic, address);
-                publicationList.Add(info);
-            }
-            finally
-            {
-                if (!isRoot())
-                {
-                    parentBroker.OnAdvertise(topic, address);
-                }
+                parentBroker.OnAdvertise(topic, address);
             }
         }
 
@@ -157,26 +145,31 @@ namespace SESDADBroker
             set {   channel = value;    }
         }
 
-        public void addTopic(string topic)
-        {
-            topicList.Add(topic);
-        }
-
-        public bool checkTopic(string topic)
-        {
-            foreach (string s in topicList)
-            {
-                if (s.Equals(topic))
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-
         public bool isRoot() // checks if broker belongs to Root Node
         {
             return (parentBroker == null) ? true : false;
+        }
+
+        public bool checkTopicInterest(Event e, string topic)
+        {
+            string[] eventArgs = e.topic.Split('/');
+            string[] topicArgs = topic.Split('/');
+            if (e.topic.Equals(topic))  // Event and Subscription topic are the same
+            {
+                return true;
+            }
+            if (eventArgs.Count() < topicArgs.Count())
+            {
+                return false;
+            }
+            for (int i = 0; i < topicArgs.Count(); i++)
+            {
+                if (!eventArgs[i].Equals(topicArgs[i]))
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private void SetParent(List<string> parentAddress) // add parent broker addresss to list
@@ -194,32 +187,16 @@ namespace SESDADBroker
             }
         }
 
-        public bool checkTopicInterest(Event e, string topic)
-        {
-            string[] eventArgs = e.topic.Split('/');
-            string[] topicArgs = topic.Split('/');
-            if (e.topic.Equals(topic))  // Event and Subscription topic are the same
-            {
-                return true;
-            }
-            if (eventArgs.Count() < topicArgs.Count())  
-            {
-                return false;
-            }
-            for(int i = 0; i < topicArgs.Count(); i++)
-            {
-                if (!eventArgs[i].Equals(topicArgs[i]))
-                {
-                    return false;
-                }
-            }
-            return true;
-        }
-
         public void Flood(Event e)
         {
-            Thread thr = new Thread(() => FloodWork(e));
-            thr.Start();
+            Thread thread_1 = new Thread(() => FloodWork(e));
+            Thread thread_2 = new Thread(() => sendToSubscriberWork(e));
+            thread_1.Start();
+            thread_2.Start();
+        }
+
+        public void sendToSubscriberWork(Event e)
+        {
             if (subscriptionsList.Any())
             {
                 foreach (SubscriptionInfo info in subscriptionsList)
@@ -228,7 +205,6 @@ namespace SESDADBroker
                     {
                         if (checkTopicInterest(e, topic))
                         {
-                            Console.WriteLine("Subscriber Address: " + info.subscription_address);
                             RemoteSubsriber subscriber = (RemoteSubsriber)Activator.GetObject(typeof(RemoteSubsriber), info.subscription_address);
                             subscriber.NotifySubscriptionEvent(e);
                         }
@@ -240,15 +216,14 @@ namespace SESDADBroker
         public void FloodWork(Event e)
         {
             string lastHopName = e.lastHop;
-            
-            //Console.WriteLine("Flooding event: " + e.Message() + " from " + e.lastHop + " to all children!");
             e.lastHop = name;
-            //remoteBroker.floodList.Enqueue(e);
+
             if (parentBroker != null && parentBroker.name != lastHopName)
             {
                 Console.WriteLine("Sending event to " + parentBroker.name);
                 parentBroker.Flood(e);
             }
+
             foreach (RemoteBroker child in childBrokers)
             {
                 if (child.name != lastHopName)
@@ -258,16 +233,27 @@ namespace SESDADBroker
                 }
             }
         }
+
+        public void FIFOOrdering(Event e)
+        {
+            PublisherInfo info = SearchPublication(e.publisher);
+            if (e.SequenceNumber == info.LastSeqNumber + 1)  // Correct Seq. Number for new Event to Send
+            {
+                AdvertisePublish(e.topic, e.publisher);
+                Flood(e);
+            }
+        }
     }
 
-    public class PublisherInfo
+    public class PublisherInfo  // alterar esta estrutura para List<string> topic
     {
         public string publication_address;
-        public List<string> topics = new List<string>();
+        public List<string> topics;
+        public int LastSeqNumber = 0;
 
         public PublisherInfo(string topic, string address)
         {
-            topics.Add(topic);
+            this.topics.Add(topic);
             publication_address = address;
         }
     }

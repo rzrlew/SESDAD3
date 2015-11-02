@@ -250,6 +250,8 @@ namespace SESDAD
     {
         public string topic;
         public string eventMessage;
+        public string publisher;
+        public int SequenceNumber;
         public string lastHop;
         public Event(string message, string topic, string lastHop)
         {

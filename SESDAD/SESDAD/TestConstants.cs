@@ -13,6 +13,6 @@ namespace SESDAD
         public static string puppetSlavePath = "C:/Users/João/Source/Repos/SESDAD/SESDAD/PuppetSlave/bin/Debug/PuppetSlave.exe";
         public static string configFilePath = "C:/Users/João/Desktop/test-config.txt";
         public static string subscriberPath = "C:/Users/João/Source/Repos/SESDAD/SESDAD/Subscriber/bin/Debug/Subscriber.exe";
-        public static string publisherPath = "C:/Users/João/Source/Repos/SESDAD/SESDAD/ConsoleApplication1/bin/Debug/Publisher.exe";
+        public static string publisherPath = "C:/Users/João/Source/Repos/SESDAD/SESDAD/Publisher/bin/Debug/Publisher.exe";
     }
 }

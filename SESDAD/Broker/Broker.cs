@@ -58,6 +58,7 @@ namespace SESDADBroker
             remoteBroker.floodEvents += new NotifyEvent(FIFOFlood);
             remoteBroker.OnSubscribe += new PubSubEventDelegate(Subscription);
             remoteBroker.OnUnsubscribe += new PubSubEventDelegate(Unsubscription);
+            remoteBroker.OnStatusRequest = new StatusRequestDelegate(SendStatus);
             //remoteBroker.OnAdvertise += new PubSubEventDelegate(AdvertisePublish);
             Name = config.processName;
             if (config.parentBrokerAddress != null)
@@ -73,6 +74,21 @@ namespace SESDADBroker
             RemotingServices.Marshal(remoteBroker, this.name);
             Console.WriteLine("Broker is listening...");
         }
+
+        public string SendStatus()
+        {
+            string msg = "";
+            if (parentBroker != null)
+            {
+                msg += "[Broker - " + this.name + "] Parent: " + this.parentBroker.name + Environment.NewLine;
+            }
+            foreach(string childAddress in configuration.childrenBrokerAddresses)
+            {
+                msg += "[Broker - " + this.name + "] Child: " + childAddress + Environment.NewLine;
+            }
+            return msg;
+        }
+
         public void Subscription(string topic, string address)
         {
             try
@@ -226,7 +242,7 @@ namespace SESDADBroker
                     {
                         if (checkTopicInterest(e, topic))
                         {
-                            RemoteSubsriber subscriber = (RemoteSubsriber)Activator.GetObject(typeof(RemoteSubsriber), info.subscription_address);
+                            RemoteSubscriber subscriber = (RemoteSubscriber)Activator.GetObject(typeof(RemoteSubscriber), info.subscription_address);
                             subscriber.NotifySubscriptionEvent(e);
                         }
                     }
@@ -277,7 +293,7 @@ namespace SESDADBroker
                     {
                         if (checkTopicInterest(e, topic))
                         {
-                            RemoteSubsriber subscriber = (RemoteSubsriber)Activator.GetObject(typeof(RemoteSubsriber), info.subscription_address);
+                            RemoteSubscriber subscriber = (RemoteSubscriber)Activator.GetObject(typeof(RemoteSubscriber), info.subscription_address);
                             PublisherInfo publisherInfo = SearchPublication(e.publisher);
                             if (publisherInfo.LastSeqNumber + 1 == e.SequenceNumber)
                             {

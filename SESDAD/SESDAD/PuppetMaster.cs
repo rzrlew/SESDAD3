@@ -52,6 +52,7 @@ namespace SESDAD
         {
             form = new PuppetMasterForm();
             form.OnBajorasPrint += new PuppetMasterFormEvent(ShowMessage);
+            form.OnSingleCommand = new PuppetMasterFormEvent(RunSingleCommand);
             TcpChannel channel = new TcpChannel(puppetMasterPort);
             ChannelServices.RegisterChannel(channel, true);
             RemotePuppetMaster remotePM = new RemotePuppetMaster();
@@ -159,6 +160,36 @@ namespace SESDAD
                             }                           
                             break;
                         }
+                }
+            }
+
+        }
+
+        public void RunSingleCommand(string command)
+        {
+            string[] commandTokens = command.Split(' ');
+            if (commandTokens[0].Equals("Status"))
+            {
+                foreach(SESDADConfig siteConfig in configList)
+                {
+                    foreach(SESDADProcessConfig processConfig in siteConfig.processConfigList)
+                    {
+                        switch (processConfig.processType)
+                        {
+                            case "broker":
+                                RemoteBroker remBroker = (RemoteBroker) Activator.GetObject(typeof(RemoteBroker), processConfig.processAddress);
+                                ShowMessage(remBroker.Status());
+                                break;
+                            case "publisher":
+                                RemotePublisher remPublisher = (RemotePublisher)Activator.GetObject(typeof(RemotePublisher), processConfig.processAddress);
+                                ShowMessage(remPublisher.Status());
+                                break;
+                            case "subscriber":
+                                RemoteSubscriber remSubscriber = (RemoteSubscriber)Activator.GetObject(typeof(RemoteSubscriber), processConfig.processAddress);
+                                ShowMessage(remSubscriber.Status());
+                                break;
+                        }
+                    }
                 }
             }
         }

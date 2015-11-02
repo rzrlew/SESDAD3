@@ -62,7 +62,6 @@
             this.single_command_box.Name = "single_command_box";
             this.single_command_box.Size = new System.Drawing.Size(286, 20);
             this.single_command_box.TabIndex = 2;
-            this.single_command_box.KeyDown += new System.Windows.Forms.KeyEventHandler(this.single_command_box_KeyDown);
             // 
             // single_command_button
             // 
@@ -72,6 +71,7 @@
             this.single_command_button.TabIndex = 3;
             this.single_command_button.Text = "Run";
             this.single_command_button.UseVisualStyleBackColor = true;
+            this.single_command_button.Click += new System.EventHandler(this.single_command_button_Click);
             // 
             // single_command_group_box
             // 

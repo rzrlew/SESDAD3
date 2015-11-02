@@ -16,6 +16,7 @@ namespace SESDADPublisher
         public string brokerAddress;
         public TcpChannel channel;
         public RemoteBroker remoteBroker;
+        public RemotePublisher remotePublisher;
         private int SequenceNumber = 0;
 
         static void Main(string[] args)
@@ -41,9 +42,17 @@ namespace SESDADPublisher
         {
             this.address = address;
             this.brokerAddress = brokerAddress;
+            remotePublisher = new RemotePublisher();
+            remotePublisher.OnStatusRequest = new StatusRequestDelegate(SendStatus);
             channel = new TcpChannel(new Uri(address).Port);
             ChannelServices.RegisterChannel(channel, true);
             remoteBroker = (RemoteBroker) Activator.GetObject(typeof(RemoteBroker), brokerAddress);
+            RemotingServices.Marshal(remotePublisher, new Uri(address).LocalPath.Split('/')[1]);
+        }
+
+        public string SendStatus()
+        {
+            return "[Publisher - " + this.address + "] - Sequence number: " + SequenceNumber;
         }
 
         public void publishEvent(Event e)

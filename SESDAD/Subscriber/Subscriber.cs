@@ -14,7 +14,7 @@ namespace SESDADSubscriber
     {
         public List<string> topicList = new List<string>();
         public RemoteBroker serviceBroker;
-        public RemoteSubsriber remoteSubscriber;
+        public RemoteSubscriber remoteSubscriber;
         public string address;
         static void Main(string[] args)
         {
@@ -44,13 +44,25 @@ namespace SESDADSubscriber
             this.address = address;
             TcpChannel channel = new TcpChannel(new Uri(address).Port);//Creates the tcp channel on the port given in the config file....
             ChannelServices.RegisterChannel(channel, true);
-            remoteSubscriber = new RemoteSubsriber();
+            remoteSubscriber = new RemoteSubscriber();
             remoteSubscriber.OnNotifySubscription += new NotifyEvent(ShowEvent);
+            remoteSubscriber.OnStatusRequest = new StatusRequestDelegate(SendStatus);
             serviceBroker = (RemoteBroker) Activator.GetObject(typeof(RemoteBroker), broker_address);
             string[] args = address.Split(':');
             string[] portAndName = args[2].Split('/');
             RemotingServices.Marshal(remoteSubscriber, portAndName[1]);
         }
+
+        public string SendStatus()
+        {
+            string msg = "[Subscriber - " + this.address + "] Broker: " + serviceBroker.name + Environment.NewLine;
+            foreach(string topic in topicList)
+            {
+                msg += "[Subscriber - " + this.address + "] Topic: " + topic + Environment.NewLine;
+            }
+            return msg;
+        }
+
         public void ShowEvent(Event e)
         {
             Console.WriteLine("Receiving Subscription Event..." + Environment.NewLine + e.Message());

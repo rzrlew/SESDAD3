@@ -7,6 +7,7 @@ using System.Threading;
 namespace SESDAD
 {
     public delegate void NotifyEvent(Event e);
+    public delegate string StatusRequestDelegate();
     public delegate void PubSubEventDelegate(string topic, string address);
     public delegate void ConfigurationEvent(List<string> addresses);
     public delegate SESDADConfig SESDADconfiguration(string SiteName);
@@ -24,6 +25,7 @@ namespace SESDAD
         public PubSubEventDelegate OnSubscribe;
         public PubSubEventDelegate OnUnsubscribe;
         public PubSubEventDelegate OnAdvertise;
+        public StatusRequestDelegate OnStatusRequest;
         public NotifyEvent floodEvents;
         public NotifyEvent sendToRoot;
         public ConfigurationEvent setParentEvent;
@@ -54,6 +56,11 @@ namespace SESDAD
         public void UnSubscribe(string topic, string address)
         {
             OnUnsubscribe(topic, address);
+        }
+
+        public string Status()
+        {
+            return OnStatusRequest();
         }
     }
 
@@ -109,12 +116,28 @@ namespace SESDAD
         }
     }
 
-    public class RemoteSubsriber : MarshalByRefObject
+    public class RemotePublisher : MarshalByRefObject
+    {
+        public StatusRequestDelegate OnStatusRequest;
+
+        public string Status()
+        {
+            return OnStatusRequest();
+        }
+    }
+
+    public class RemoteSubscriber : MarshalByRefObject
     {
         public NotifyEvent OnNotifySubscription;
+        public StatusRequestDelegate OnStatusRequest;
         public void NotifySubscriptionEvent(Event e)
         {
             OnNotifySubscription(e);
+        }
+
+        public string Status()
+        {
+            return OnStatusRequest();
         }
     }
 

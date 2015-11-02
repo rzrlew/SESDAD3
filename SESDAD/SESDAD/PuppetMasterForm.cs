@@ -5,6 +5,7 @@ using System.Data;
 using System.Drawing;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -13,6 +14,7 @@ namespace SESDAD
     public partial class PuppetMasterForm : Form
     {
         public PuppetMasterFormEvent OnBajorasPrint;
+        public PuppetMasterFormEvent OnSingleCommand;
         public PuppetMasterForm()
         {
             InitializeComponent();
@@ -29,14 +31,9 @@ namespace SESDAD
             OnBajorasPrint("");
         }
 
-        private void single_command_box_KeyDown(object sender, KeyEventArgs e)
+        private void single_command_button_Click(object sender, EventArgs e)
         {
-            ParseSingleCommand(single_command_box.Text);
-        }
-
-        private void ParseSingleCommand(string text)
-        {
-            throw new NotImplementedException();
+            new Thread(() => OnSingleCommand(single_command_box.Text)).Start();
         }
     }
 }

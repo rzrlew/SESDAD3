@@ -64,7 +64,7 @@ namespace SESDAD
 
         private string ShowLog(PuppetMasterEventArgs args)
         {
-            ShowMessage(args.LogMessage);
+            ShowMessage("[" + DateTime.Now.Hour + ":" + DateTime.Now.Minute + ":" + DateTime.Now.Second + "] " + args.LogMessage);
             return "Done!";
         }
 
@@ -170,16 +170,8 @@ namespace SESDAD
 
         void ShowMessage(string msg)    // print given string in puppet master form
         {
-            string prependMessages = "";
-            if(toShowMessages.Count > 0)
-            {
-                foreach(string m in toShowMessages)
-                {
-                    prependMessages += m + Environment.NewLine;
-                }
-            }
             object[] arguments = new object[1];
-            arguments[0] = prependMessages + msg + Environment.NewLine;
+            arguments[0] = msg + Environment.NewLine;
             form.Invoke(new PuppetMasterFormEvent(form.appendToOutputWindow), arguments);
         }
     }

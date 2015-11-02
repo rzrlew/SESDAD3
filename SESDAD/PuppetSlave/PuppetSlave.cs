@@ -112,7 +112,7 @@ namespace SESDAD
                         {
                             Console.WriteLine("Starting broker process...");
                             Process.Start(TestConstants.brokerPath, "tcp://localhost:" + port + "/" + configuration.siteName + "slave");
-                            SendLogMessage("Slave started on '" + configuration.siteName + "'!");
+                            SendLogMessage("Slave started broker on '" + configuration.siteName + "'!");
                             break;
                         }
                         
@@ -129,7 +129,7 @@ namespace SESDAD
                             Console.WriteLine(processConf.processAddress + Environment.NewLine + processConf.processParentAddress);
                             Console.WriteLine("Starting publisher process...");
                             Process.Start(TestConstants.publisherPath, processConf.processAddress + " " + processConf.processParentAddress);
-                            SendLogMessage("Slave started subscriber on '" + configuration.siteName + "'!");
+                            SendLogMessage("Slave started publisher on '" + configuration.siteName + "'!");
                             break;
                         }
                 }

@@ -95,7 +95,7 @@ namespace SESDADBroker
 
         public void SendEventLogWork(Event e)
         {
-            remoteSlave.SendLog("'" + configuration.processName + "' got event!" + Environment.NewLine + "[Topic]: '" + e.topic + "'" + Environment.NewLine + "[Message]: '" + e.eventMessage);
+            remoteSlave.SendLog("'" + configuration.processName + "' got event!" + Environment.NewLine + "[Topic]: " + e.topic + Environment.NewLine + "[Message]: " + e.eventMessage);
         }
 
         public PublisherInfo SearchPublication(string address)
@@ -186,6 +186,7 @@ namespace SESDADBroker
             Thread thread_log = new Thread(() => SendEventLogWork(e));
             Thread thread_1 = new Thread(() => FloodWork(e));
             Thread thread_2 = new Thread(() => sendToSubscriberWork(e));
+            thread_log.Start();
             thread_1.Start();
             thread_2.Start();
         }
@@ -194,6 +195,7 @@ namespace SESDADBroker
             Thread thread_log = new Thread(() => SendEventLogWork(e));
             Thread thread_1 = new Thread(() => FloodWork(e));
             Thread thread_2 = new Thread(() => sendFIFOEvents(e));
+            thread_log.Start();
             thread_1.Start();
             thread_2.Start();
         }

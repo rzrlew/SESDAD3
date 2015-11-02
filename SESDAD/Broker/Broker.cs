@@ -162,11 +162,14 @@ namespace SESDADBroker
             {
                 return false;
             }
-            for (int i = 0; i < topicArgs.Count(); i++)
+            if(topicArgs[topicArgs.Count() - 1].Equals('*')) // check if the subscriber has interest in the subtopics
             {
-                if (!eventArgs[i].Equals(topicArgs[i]))
+                for (int i = 0; i < topicArgs.Count(); i++)
                 {
-                    return false;
+                    if (!eventArgs[i].Equals(topicArgs[i]))     // verifies that the topic corresponds to a subtopic
+                    {
+                        return false;
+                    }
                 }
             }
             return true;
@@ -237,6 +240,7 @@ namespace SESDADBroker
         public void FIFOOrdering(Event e)
         {
             PublisherInfo info = SearchPublication(e.publisher);
+
             if (e.SequenceNumber == info.LastSeqNumber + 1)  // Correct Seq. Number for new Event to Send
             {
                 AdvertisePublish(e.topic, e.publisher);
@@ -248,7 +252,7 @@ namespace SESDADBroker
     public class PublisherInfo  // alterar esta estrutura para List<string> topic
     {
         public string publication_address;
-        public List<string> topics;
+        public List<string> topics = new List<string>();
         public int LastSeqNumber = 0;
 
         public PublisherInfo(string topic, string address)

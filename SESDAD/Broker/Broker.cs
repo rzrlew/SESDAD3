@@ -53,10 +53,10 @@ namespace SESDADBroker
             Console.WriteLine("Creating remote broker on " + config.processAddress);
             configuration = config;
             remoteBroker = new RemoteBroker();
-            remoteBroker.floodEvents += new NotifyEvent(Flood);
+            remoteBroker.floodEvents += new NotifyEvent(FIFOFlood);
             remoteBroker.OnSubscribe += new PubSubEventDelegate(Subscription);
             remoteBroker.OnUnsubscribe += new PubSubEventDelegate(Unsubscription);
-            remoteBroker.OnAdvertise += new PubSubEventDelegate(AdvertisePublish);
+            //remoteBroker.OnAdvertise += new PubSubEventDelegate(AdvertisePublish);
             Name = config.processName;
             if (config.parentBrokerAddress != null)
             {
@@ -71,22 +71,6 @@ namespace SESDADBroker
             RemotingServices.Marshal(remoteBroker, this.name);
             Console.WriteLine("Broker is listening...");
         }
-
-        public void AdvertisePublish(string topic, string address)  // TODO: Send advertisement to root node
-        {
-            Thread thr = new Thread(() => AdvertisePublishWork(topic, address));
-            thr.Start();
-        }
-
-        public void AdvertisePublishWork(string topic, string address)  // TODO: Send advertisement to root node
-        {
-            PublisherInfo info = new PublisherInfo(topic, address);
-            if (!isRoot())
-            {
-                parentBroker.OnAdvertise(topic, address);
-            }
-        }
-
         public void Subscription(string topic, string address)
         {
             try
@@ -197,6 +181,29 @@ namespace SESDADBroker
             thread_1.Start();
             thread_2.Start();
         }
+        public void FIFOFlood(Event e)
+        {
+            Thread thread_1 = new Thread(() => FloodWork(e));
+            Thread thread_2 = new Thread(() => sendFIFOEvents(e));
+            thread_1.Start();
+            thread_2.Start();
+        }
+        public void createPublisherInfo(Event e)
+        {
+            try
+            {
+                PublisherInfo info = SearchPublication(e.publisher);
+                if (!info.topics.Contains(e.topic))
+                {
+                    info.topics.Add(e.topic);
+                }
+            }
+            catch (NotImplementedException)
+            {
+                PublisherInfo info = new PublisherInfo(e.topic, e.publisher);
+                publicationList.Add(info);
+            }
+        }
 
         public void sendToSubscriberWork(Event e)
         {
@@ -220,6 +227,7 @@ namespace SESDADBroker
         {
             string lastHopName = e.lastHop;
             e.lastHop = name;
+            createPublisherInfo(e);
 
             if (parentBroker != null && parentBroker.name != lastHopName)
             {
@@ -236,18 +244,48 @@ namespace SESDADBroker
                 }
             }
         }
-
-        public void FIFOOrdering(Event e)
+       
+        public void getNextFIFOEvent(string address)
         {
-            PublisherInfo info = SearchPublication(e.publisher);
-
-            if (e.SequenceNumber == info.LastSeqNumber + 1)  // Correct Seq. Number for new Event to Send
+            PublisherInfo info = SearchPublication(address);
+            foreach (Event e in FIFOWaitQueue)
             {
-                AdvertisePublish(e.topic, e.publisher);
-                Flood(e);
+                if(e.SequenceNumber == info.LastSeqNumber + 1)
+                {
+                    sendFIFOEvents(e);
+                }
+            }
+        }
+        public void sendFIFOEvents(Event e)
+        {
+            if (subscriptionsList.Any())
+            {
+                foreach (SubscriptionInfo info in subscriptionsList)
+                {
+                    foreach (string topic in info.topics)
+                    {
+                        if (checkTopicInterest(e, topic))
+                        {
+                            RemoteSubsriber subscriber = (RemoteSubsriber)Activator.GetObject(typeof(RemoteSubsriber), info.subscription_address);
+                            PublisherInfo publisherInfo = SearchPublication(e.publisher);
+                            if (publisherInfo.LastSeqNumber + 1 == e.SequenceNumber)
+                            {
+                                subscriber.NotifySubscriptionEvent(e);
+                                ++publisherInfo.LastSeqNumber;
+                                getNextFIFOEvent(e.publisher);
+                            }
+                            else
+                            {
+                                FIFOWaitQueue.Add(e);
+                            }
+                        }
+                    }
+                }
             }
         }
     }
+
+
 
     public class PublisherInfo  // alterar esta estrutura para List<string> topic
     {

@@ -50,7 +50,7 @@ namespace SESDADPublisher
         {
             e.publisher = address;
             e.SequenceNumber = ++SequenceNumber;    // 
-            remoteBroker.Advertise(e.topic, address);
+            //remoteBroker.Advertise(e.topic, address);
             remoteBroker.Flood(e);
         }
     }

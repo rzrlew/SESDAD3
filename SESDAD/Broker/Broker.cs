@@ -17,7 +17,8 @@ namespace SESDADBroker
         string name;
         SESDADBrokerConfig configuration;
         TcpChannel channel;
-        RemoteBroker remoteBroker;  
+        RemotePuppetSlave remoteSlave;
+        RemoteBroker remoteBroker;
         RemoteBroker parentBroker = null;
         List<RemoteBroker> childBrokers = new List<RemoteBroker>();
 
@@ -41,7 +42,8 @@ namespace SESDADBroker
             ChannelServices.RegisterChannel(channel, true);
             Broker bro = new Broker(configuration);
             bro.configuration = configuration;
-            bro.Channel = channel;           
+            bro.Channel = channel;
+            bro.remoteSlave = remotePuppetSlave;       
             Console.WriteLine("press key to terminate...");
             Console.ReadLine();
             Console.WriteLine("Ending Broker Process: " + bro.name);
@@ -89,6 +91,11 @@ namespace SESDADBroker
         {
             SubscriptionInfo info = SearchSubscription(address);
             info.topics.Remove(topic);
+        }
+
+        public void SendEventLogWork(Event e)
+        {
+            remoteSlave.SendLog("'" + configuration.processName + "' got event!" + Environment.NewLine + "[Topic]: '" + e.topic + "'" + Environment.NewLine + "[Message]: '" + e.eventMessage);
         }
 
         public PublisherInfo SearchPublication(string address)
@@ -176,6 +183,7 @@ namespace SESDADBroker
 
         public void Flood(Event e)
         {
+            Thread thread_log = new Thread(() => SendEventLogWork(e));
             Thread thread_1 = new Thread(() => FloodWork(e));
             Thread thread_2 = new Thread(() => sendToSubscriberWork(e));
             thread_1.Start();
@@ -183,6 +191,7 @@ namespace SESDADBroker
         }
         public void FIFOFlood(Event e)
         {
+            Thread thread_log = new Thread(() => SendEventLogWork(e));
             Thread thread_1 = new Thread(() => FloodWork(e));
             Thread thread_2 = new Thread(() => sendFIFOEvents(e));
             thread_1.Start();

@@ -10,9 +10,10 @@ namespace SESDAD
     public delegate void PubSubEventDelegate(string topic, string address);
     public delegate void ConfigurationEvent(List<string> addresses);
     public delegate SESDADConfig SESDADconfiguration(string SiteName);
-    public delegate SESDADProcessConfiguration SESDADprocessConfiguration();
+    public delegate SESDADProcessConfiguration SESDADProcessConfigurationDelegate();
     public delegate SESDADConfig SESDADSlaveConfigurationDelegate();
     public delegate string PuppetMasterEvent(PuppetMasterEventArgs args);
+    public delegate void LogMessageDelegate(string message);
     public enum PMEType { Register, Notify, ConfigReq, Log }
 
     /// <summary>
@@ -61,10 +62,16 @@ namespace SESDAD
     /// </summary>
     public class RemotePuppetSlave : MarshalByRefObject
     {
-        public SESDADprocessConfiguration OnGetConfiguration;    // broker configuration delegate
+        public LogMessageDelegate OnLogMessage;
+        public SESDADProcessConfigurationDelegate OnGetConfiguration;    // broker configuration delegate
         public SESDADProcessConfiguration GetConfiguration()
         {
             return OnGetConfiguration();
+        }
+
+        public void SendLog(string message)
+        {
+            OnLogMessage(message);
         }
     }
 
@@ -94,10 +101,10 @@ namespace SESDAD
             return configRequest(siteName);
         }
 
-        public void LogMessage(string message, DateTime time)
+        public void LogMessage(string message)
         {
             PuppetMasterEventArgs args = new PuppetMasterEventArgs(PMEType.Log);
-            args.LogMessage = "[" + time.ToShortTimeString() + "]: " + message;
+            args.LogMessage = message;
             OnLogMessage(args);
         }
     }

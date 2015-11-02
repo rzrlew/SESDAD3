@@ -39,7 +39,8 @@ namespace SESDAD
         {
             Console.WriteLine("Contacting PuppetMaster on: " + puppetMasterAddress);
             remotePuppetSlave = new RemotePuppetSlave();
-            remotePuppetSlave.OnGetConfiguration += new SESDADprocessConfiguration(GetConfiguration);
+            remotePuppetSlave.OnGetConfiguration += new SESDADProcessConfigurationDelegate(GetConfiguration);
+            remotePuppetSlave.OnLogMessage += new LogMessageDelegate(SendLogMessage);
             TcpChannel temp_channel = new TcpChannel();
             ChannelServices.RegisterChannel(temp_channel, true);
             remotePuppetMaster = (RemotePuppetMaster)Activator.GetObject(typeof(RemotePuppetMaster), puppetMasterAddress);
@@ -49,6 +50,11 @@ namespace SESDAD
             ChannelServices.RegisterChannel(channel, true);
             configuration = remotePuppetMaster.RegisterSlave();
             StartupConfiguration(configuration);
+        }
+
+        public void SendLogMessage(string message)
+        {
+            remotePuppetMaster.LogMessage(message);
         }
 
         public SESDADProcessConfiguration GetConfiguration()
@@ -106,6 +112,7 @@ namespace SESDAD
                         {
                             Console.WriteLine("Starting broker process...");
                             Process.Start(TestConstants.brokerPath, "tcp://localhost:" + port + "/" + configuration.siteName + "slave");
+                            SendLogMessage("Slave started on '" + configuration.siteName + "'!");
                             break;
                         }
                         
@@ -113,6 +120,7 @@ namespace SESDAD
                         {
                             Console.WriteLine("Starting subscriber process...");
                             Process.Start(TestConstants.subscriberPath, processConf.processAddress + " " + processConf.processParentAddress);
+                            SendLogMessage("Slave started subscriber on '" + configuration.siteName + "'!");
                             break;
                         }
 
@@ -121,6 +129,7 @@ namespace SESDAD
                             Console.WriteLine(processConf.processAddress + Environment.NewLine + processConf.processParentAddress);
                             Console.WriteLine("Starting publisher process...");
                             Process.Start(TestConstants.publisherPath, processConf.processAddress + " " + processConf.processParentAddress);
+                            SendLogMessage("Slave started subscriber on '" + configuration.siteName + "'!");
                             break;
                         }
                 }

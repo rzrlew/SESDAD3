@@ -27,12 +27,25 @@ namespace SESDAD
         /// The main entry point for the application.
         /// </summary>
         [STAThread]
-        public static void Main()
+        public static void Main(string[] args)
         {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            PuppetMaster puppetMaster = new PuppetMaster();
-            Application.Run(puppetMaster.form);
+            if (args.Count() < 2)
+            {
+                throw new NotImplementedException("Must indicate True or False and puppetmaster address in arguments!");
+            }
+            Console.WriteLine(bool.FalseString);
+            if (bool.Parse(args[0]))
+            {
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                PuppetMaster puppetMaster = new PuppetMaster();
+                Process.Start(TestConstants.puppetSlavePath, args[1]);
+                Application.Run(puppetMaster.form);
+            }
+            else
+            {
+                Process.Start(TestConstants.puppetSlavePath, args[1]);
+            }
         }
 
         public PuppetMaster()
@@ -44,17 +57,25 @@ namespace SESDAD
             RemotePuppetMaster remotePM = new RemotePuppetMaster();
             remotePM.slaveSignIn += new SESDADSlaveConfigurationDelegate(RegisterSlave);
             remotePM.configRequest += new SESDADconfiguration(searchConfigList);
+            remotePM.OnLogMessage += new PuppetMasterEvent(ShowLog);
             RemotingServices.Marshal(remotePM, "puppetmaster");
             parseConfigFile(TestConstants.configFilePath);
         }
 
-         SESDADConfig RegisterSlave()   // saves broker address in Hash
+        private string ShowLog(PuppetMasterEventArgs args)
+        {
+            ShowMessage(args.LogMessage);
+            return "Done!";
+        }
+
+        SESDADConfig RegisterSlave()   // saves broker address in Hash
         {
             foreach(SESDADConfig config in configList)
             {
                 if (!config.isDone)
                 {
                     config.isDone = true;
+                    ShowMessage("Slave for '" + config.siteName + "' is registered!");
                     return config;
                 }
             }

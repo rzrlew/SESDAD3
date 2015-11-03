@@ -40,7 +40,7 @@ namespace SESDADBroker
             TcpChannel channel = new TcpChannel(new Uri(configuration.processAddress).Port);
             ChannelServices.UnregisterChannel(temp_channel);
             ChannelServices.RegisterChannel(channel, true);
-            Broker bro = new Broker(configuration);
+            Broker bro = new Broker(configuration, args[0]);
             bro.configuration = configuration;
             bro.Channel = channel;
             bro.remoteSlave = remotePuppetSlave;       
@@ -49,12 +49,12 @@ namespace SESDADBroker
             Console.WriteLine("Ending Broker Process: " + bro.name);
         }
 
-        public Broker(SESDADBrokerConfig config)
+        public Broker(SESDADBrokerConfig config, string slaveAddress)
         {
             Console.WriteLine("---Starting Broker---");
             Console.WriteLine("Creating remote broker on " + config.processAddress);
             configuration = config;
-            remoteBroker = new RemoteBroker();
+            remoteBroker = new RemoteBroker(slaveAddress);
             remoteBroker.floodEvents += new NotifyEvent(FIFOFlood);
             remoteBroker.OnSubscribe += new PubSubEventDelegate(Subscription);
             remoteBroker.OnUnsubscribe += new PubSubEventDelegate(Unsubscription);

@@ -44,10 +44,17 @@ namespace SESDADPublisher
             this.brokerAddress = brokerAddress;
             remotePublisher = new RemotePublisher();
             remotePublisher.OnStatusRequest = new StatusRequestDelegate(SendStatus);
+            remotePublisher.OnPublishRequest = new PubSubEventDelegate(HandlePublishEvent);
             channel = new TcpChannel(new Uri(address).Port);
             ChannelServices.RegisterChannel(channel, true);
             remoteBroker = (RemoteBroker) Activator.GetObject(typeof(RemoteBroker), brokerAddress);
             RemotingServices.Marshal(remotePublisher, new Uri(address).LocalPath.Split('/')[1]);
+        }
+
+        private void HandlePublishEvent(string topic, string message)
+        {
+            Event e = new Event(message, topic, remoteBroker.name);
+            publishEvent(e);
         }
 
         public string SendStatus()

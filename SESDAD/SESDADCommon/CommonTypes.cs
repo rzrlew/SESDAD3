@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -17,11 +19,22 @@ namespace SESDAD
     public delegate void LogMessageDelegate(string message);
     public enum PMEType { Register, Notify, ConfigReq, Log }
 
+
+
+    public interface SESDADRemoteProcessControlInterface
+    {
+        string Status();
+        void Freeze();
+        void Unfreeze();
+        void Crash();
+    }
+
     /// <summary>
     /// 
     /// </summary>
-    public class RemoteBroker : MarshalByRefObject
+    public class RemoteBroker : MarshalByRefObject, SESDADRemoteProcessControlInterface
     {
+        private string slaveAddress;
         public PubSubEventDelegate OnSubscribe;
         public PubSubEventDelegate OnUnsubscribe;
         public PubSubEventDelegate OnAdvertise;
@@ -32,19 +45,30 @@ namespace SESDAD
         public ConfigurationEvent setChildrenEvent;
         public Queue<Event> floodList;
         public string name;
-
-        public RemoteBroker()
+        public bool isFrozen = false;
+        Queue<Event> frozenEventsQueue = new Queue<Event>();
+        
+        public RemoteBroker(string slaveAddress)
         {
+            this.slaveAddress = slaveAddress;
             floodList = new Queue<Event>();
         }
 
         public void Flood(Event e)
         {
-            floodEvents(e);
+            if (!isFrozen)
+            {
+                floodEvents(e);
+            }
+            else
+            {
+                frozenEventsQueue.Enqueue(e);
+            }
         }
 
         public void Advertise(string topic, string address)
         {
+
             OnAdvertise(topic, address);
         }
 
@@ -58,9 +82,30 @@ namespace SESDAD
             OnUnsubscribe(topic, address);
         }
 
+        public void Freeze()
+        {
+            Console.WriteLine("Freezing... Collecting messages...");
+            isFrozen = true;
+        }
+
+        public void Unfreeze()
+        {
+            Console.WriteLine("Unfreezing, replaying collected messages...");
+            isFrozen = false;
+            while(frozenEventsQueue.Count > 0)
+            {
+                Flood(frozenEventsQueue.Dequeue());
+            }
+        }
+
         public string Status()
         {
-            return OnStatusRequest();
+            return OnStatusRequest() + "[Broker] Frozen: " + isFrozen.ToString();
+        }
+
+        public void Crash()
+        {
+            Process.GetCurrentProcess().Kill();
         }
     }
 
@@ -71,6 +116,7 @@ namespace SESDAD
     {
         public LogMessageDelegate OnLogMessage;
         public SESDADProcessConfigurationDelegate OnGetConfiguration;    // broker configuration delegate
+        
         public SESDADProcessConfiguration GetConfiguration()
         {
             return OnGetConfiguration();
@@ -116,18 +162,43 @@ namespace SESDAD
         }
     }
 
-    public class RemotePublisher : MarshalByRefObject
+    public class RemotePublisher : MarshalByRefObject, SESDADRemoteProcessControlInterface
     {
         public StatusRequestDelegate OnStatusRequest;
+        public PubSubEventDelegate OnPublishRequest;
+        private bool isFrozen = false;
 
         public string Status()
         {
             return OnStatusRequest();
         }
+
+        public void Publish(string topic, string message)
+        {
+            OnPublishRequest(topic, message);
+        }
+
+        public void Freeze()
+        {
+            Console.WriteLine("Freezing!");
+            isFrozen = true;
+        }
+
+        public void Unfreeze()
+        {
+            Console.WriteLine("Unfreezing!");
+            isFrozen = false;
+        }
+
+        public void Crash()
+        {
+            Process.GetCurrentProcess().Kill();
+        }
     }
 
-    public class RemoteSubscriber : MarshalByRefObject
+    public class RemoteSubscriber : MarshalByRefObject, SESDADRemoteProcessControlInterface
     {
+        private bool isFrozen = false;
         public NotifyEvent OnNotifySubscription;
         public StatusRequestDelegate OnStatusRequest;
         public void NotifySubscriptionEvent(Event e)
@@ -138,6 +209,23 @@ namespace SESDAD
         public string Status()
         {
             return OnStatusRequest();
+        }
+
+        public void Freeze()
+        {
+            Console.WriteLine("Freezing!");
+            isFrozen = true;
+        }
+
+        public void Unfreeze()
+        {
+            Console.WriteLine("Unfreezing!");
+            isFrozen = false;
+        }
+
+        public void Crash()
+        {
+            Process.GetCurrentProcess().Kill();
         }
     }
 

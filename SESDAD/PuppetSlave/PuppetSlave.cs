@@ -10,7 +10,8 @@ using System.Runtime.Remoting.Channels.Tcp;
 using System.Collections;
 using System.Runtime.Remoting.Messaging;
 using System.Net;
-
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 
 namespace SESDAD
 {
@@ -34,7 +35,6 @@ namespace SESDAD
             }
             Console.ReadLine();
         }
-
         public PuppetSlave(string puppetMasterAddress)
         {
             Console.WriteLine("Contacting PuppetMaster on: " + puppetMasterAddress);
@@ -51,54 +51,40 @@ namespace SESDAD
             configuration = remotePuppetMaster.RegisterSlave();
             StartupConfiguration(configuration);
         }
-
         public void SendLogMessage(string message)
         {
             remotePuppetMaster.LogMessage(message);
         }
-
         public SESDADProcessConfiguration GetConfiguration()
         {
-            Console.WriteLine("Got a configuration request from broker.");
-            
+            Console.WriteLine("Got a configuration request from broker.");           
             foreach(SESDADProcessConfig config in configuration.processConfigList)
             {
                 switch (config.processType)
                 {
                     case "broker":
-                        {
-                            SESDADBrokerConfig brokerConf = new SESDADBrokerConfig();
-                            brokerConf.parentBrokerAddress = config.processParentAddress;
-                            brokerConf.processAddress = config.processAddress;
-                            brokerConf.processName = config.processName;
-                            brokerConf.childrenBrokerAddresses = configuration.childBrokersAddresses;
-                            return brokerConf;
-                        }
-                    case "subscriber":
-                        {
-                            SESDADPubSubConfig pubSubConf = new SESDADPubSubConfig();
-                            pubSubConf.processAddress = config.processAddress;
-                            pubSubConf.processName = config.processName;
-                            pubSubConf.brokerAddress = config.processParentAddress;
-                            return pubSubConf;
-                        }
+                        SESDADBrokerConfig brokerConf = new SESDADBrokerConfig();
+                        brokerConf.parentBrokerAddress = config.processParentAddress;
+                        brokerConf.processAddress = config.processAddress;
+                        brokerConf.processName = config.processName;
+                        brokerConf.childrenBrokerAddresses = configuration.childBrokersAddresses;
+                        return brokerConf;
+                        
                     case "publisher":
-                        {
-                            SESDADPubSubConfig pubSubConf = new SESDADPubSubConfig();
-                            pubSubConf.processAddress = config.processAddress;
-                            pubSubConf.processName = config.processName;
-                            pubSubConf.brokerAddress = config.processParentAddress;
-                            return pubSubConf;
-                        }
+                    case "subscriber":
+                        SESDADPubSubConfig pubSubConf = new SESDADPubSubConfig();
+                        pubSubConf.processAddress = config.processAddress;
+                        pubSubConf.processName = config.processName;
+                        pubSubConf.brokerAddress = config.processParentAddress;
+                        return pubSubConf;
+
                     case default(string):
-                        {
-                            throw new NotImplementedException();
-                        }
+                        throw new NotImplementedException();
+                        
                 }
             }
             throw new NotImplementedException();
         }
-
         private void StartupConfiguration(SESDADConfig config)
         {
             configuration = config;
@@ -109,29 +95,38 @@ namespace SESDAD
                 switch (processConf.processType)
                 {
                     case "broker":
+                        Console.WriteLine("Starting broker process...");
+                        IPAddress[] localIPs = Dns.GetHostAddresses(Dns.GetHostName());
+                        string ipAddress = "";
+                        foreach (NetworkInterface nic in NetworkInterface.GetAllNetworkInterfaces())
                         {
-                            Console.WriteLine("Starting broker process...");
-                            Process.Start(TestConstants.brokerPath, "tcp://localhost:" + port + "/" + configuration.siteName + "slave");
-                            SendLogMessage("Slave started broker on '" + configuration.siteName + "'!");
-                            break;
+                            if (nic.GetIPProperties().GatewayAddresses.Count() > 0)
+                            {
+                                foreach (UnicastIPAddressInformation addressInfo in nic.GetIPProperties().UnicastAddresses)
+                                {
+                                    if (addressInfo.Address.AddressFamily.Equals(AddressFamily.InterNetwork))
+                                    {
+                                        ipAddress = addressInfo.Address.ToString();
+                                    }
+                                }
+                            }
                         }
-                        
+                        Console.WriteLine("Slaves IP address is: " + ipAddress);
+                        Process.Start(TestConstants.brokerPath, "tcp://" + ipAddress + ":" + port + "/" + configuration.siteName + "slave");
+                        SendLogMessage("Slave started broker on '" + configuration.siteName + "'!");
+                        break;
+
                     case "subscriber":
-                        {
-                            Console.WriteLine("Starting subscriber process...");
-                            Process.Start(TestConstants.subscriberPath, processConf.processAddress + " " + processConf.processParentAddress);
-                            SendLogMessage("Slave started subscriber on '" + configuration.siteName + "'!");
-                            break;
-                        }
+                        Console.WriteLine("Starting subscriber process...");
+                        Process.Start(TestConstants.subscriberPath, processConf.processAddress + " " + processConf.processParentAddress);
+                        SendLogMessage("Slave started subscriber on '" + configuration.siteName + "'!");
+                        break;
 
                     case "publisher":
-                        {
-                            Console.WriteLine(processConf.processAddress + Environment.NewLine + processConf.processParentAddress);
-                            Console.WriteLine("Starting publisher process...");
-                            Process.Start(TestConstants.publisherPath, processConf.processAddress + " " + processConf.processParentAddress);
-                            SendLogMessage("Slave started publisher on '" + configuration.siteName + "'!");
-                            break;
-                        }
+                        Console.WriteLine("Starting publisher process...");
+                        Process.Start(TestConstants.publisherPath, processConf.processAddress + " " + processConf.processParentAddress);
+                        SendLogMessage("Slave started publisher on '" + configuration.siteName + "'!");
+                        break;
                 }
             }
         }

@@ -43,12 +43,30 @@ namespace SESDAD
             remotePuppetSlave.OnLogMessage += new LogMessageDelegate(SendLogMessage);
             TcpChannel temp_channel = new TcpChannel();
             ChannelServices.RegisterChannel(temp_channel, true);
+
             remotePuppetMaster = (RemotePuppetMaster)Activator.GetObject(typeof(RemotePuppetMaster), puppetMasterAddress);
-            port = remotePuppetMaster.GetNextPortNumber();
+            try {
+                port = remotePuppetMaster.GetNextPortNumber();
+            }
+            catch (SocketException)
+            {
+                Console.WriteLine("Could not connect to Puppet Master at address: " + puppetMasterAddress);
+                Console.WriteLine("Press <Enter> to exit!");
+                return;
+            }
+
             ChannelServices.UnregisterChannel(temp_channel);
             channel = new TcpChannel(port);           
             ChannelServices.RegisterChannel(channel, true);
-            configuration = remotePuppetMaster.RegisterSlave();
+            try {
+                configuration = remotePuppetMaster.RegisterSlave();
+            }
+            catch (NotImplementedException e)
+            {
+                Console.WriteLine(e.Message);
+                Console.WriteLine("Press <Enter> to exit!");
+                return;
+            }
             StartupConfiguration(configuration);
         }
         public void SendLogMessage(string message)

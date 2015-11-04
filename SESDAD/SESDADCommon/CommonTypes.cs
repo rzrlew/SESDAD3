@@ -8,18 +8,15 @@ using System.Threading;
 
 namespace SESDAD
 {
-    public delegate void NotifyEvent(Event e);
+    public delegate void NotifyEventDelegate(PublicationEvent e);
     public delegate string StatusRequestDelegate();
     public delegate void PubSubEventDelegate(string topic, string address);
-    public delegate void ConfigurationEvent(List<string> addresses);
-    public delegate SESDADConfig SESDADconfiguration(string SiteName);
+    public delegate void ConfigurationEventDelegate(List<string> addresses);
+    public delegate SESDADConfig SESDADconfigurationDelegate(string SiteName);
     public delegate SESDADProcessConfiguration SESDADProcessConfigurationDelegate();
     public delegate SESDADConfig SESDADSlaveConfigurationDelegate();
-    public delegate string PuppetMasterEvent(PuppetMasterEventArgs args);
+    public delegate string PuppetMasterLogEventDelegate(string message);
     public delegate void LogMessageDelegate(string message);
-    public enum PMEType { Register, Notify, ConfigReq, Log }
-
-
 
     public interface SESDADRemoteProcessControlInterface
     {
@@ -39,22 +36,18 @@ namespace SESDAD
         public PubSubEventDelegate OnUnsubscribe;
         public PubSubEventDelegate OnAdvertise;
         public StatusRequestDelegate OnStatusRequest;
-        public NotifyEvent floodEvents;
-        public NotifyEvent sendToRoot;
-        public ConfigurationEvent setParentEvent;
-        public ConfigurationEvent setChildrenEvent;
-        public Queue<Event> floodList;
+        public NotifyEventDelegate floodEvents;
+        public Queue<PublicationEvent> floodList;
         public string name;
         public bool isFrozen = false;
-        Queue<Event> frozenEventsQueue = new Queue<Event>();
+        Queue<EventInterface> frozenEventsQueue = new Queue<EventInterface>();
         
         public RemoteBroker(string slaveAddress)
         {
             this.slaveAddress = slaveAddress;
-            floodList = new Queue<Event>();
         }
 
-        public void Flood(Event e)
+        public void Flood(PublicationEvent e)
         {
             if (!isFrozen)
             {
@@ -68,18 +61,31 @@ namespace SESDAD
 
         public void Advertise(string topic, string address)
         {
-
             OnAdvertise(topic, address);
         }
 
-        public void Subscribe(string topic, string address)
+        public void Subscribe(SubscriptionEvent e)
         {
-            OnSubscribe(topic, address);
+            if (!isFrozen)
+            {
+                OnSubscribe(e.subUnsubTopic, e.subUnsubAddress);
+            }
+            else
+            {
+                frozenEventsQueue.Enqueue(e);
+            }
         }
 
-        public void UnSubscribe(string topic, string address)
+        public void UnSubscribe(UnsubscriptionEvent e)
         {
-            OnUnsubscribe(topic, address);
+            if (!isFrozen)
+            {
+                OnUnsubscribe(e.subUnsubTopic, e.subUnsubAddress);
+            }
+            else
+            {
+                frozenEventsQueue.Enqueue(e);
+            }
         }
 
         public void Freeze()
@@ -94,7 +100,20 @@ namespace SESDAD
             isFrozen = false;
             while(frozenEventsQueue.Count > 0)
             {
-                Flood(frozenEventsQueue.Dequeue());
+                EventInterface e = frozenEventsQueue.Dequeue();
+                switch (e.GetEventType())
+                {
+                    case EventType.Publication:
+                        Flood((PublicationEvent) e);
+                        break;
+                    case EventType.Subscription:
+                        Subscribe((SubscriptionEvent)e);
+                        break;
+                    case EventType.Unsubscription:
+                        UnSubscribe((UnsubscriptionEvent)e);
+                        break;
+                }
+                
             }
         }
 
@@ -134,8 +153,8 @@ namespace SESDAD
     public class RemotePuppetMaster : MarshalByRefObject
     {
         public SESDADSlaveConfigurationDelegate slaveSignIn;
-        public SESDADconfiguration configRequest;
-        public PuppetMasterEvent OnLogMessage;
+        public SESDADconfigurationDelegate configRequest;
+        public PuppetMasterLogEventDelegate OnLogMessage;
         static int slaveStartPort = 9000;
         int portCounter = 0;
 
@@ -156,9 +175,7 @@ namespace SESDAD
 
         public void LogMessage(string message)
         {
-            PuppetMasterEventArgs args = new PuppetMasterEventArgs(PMEType.Log);
-            args.LogMessage = message;
-            OnLogMessage(args);
+            OnLogMessage(message);
         }
     }
 
@@ -199,9 +216,9 @@ namespace SESDAD
     public class RemoteSubscriber : MarshalByRefObject, SESDADRemoteProcessControlInterface
     {
         private bool isFrozen = false;
-        public NotifyEvent OnNotifySubscription;
+        public NotifyEventDelegate OnNotifySubscription;
         public StatusRequestDelegate OnStatusRequest;
-        public void NotifySubscriptionEvent(Event e)
+        public void NotifySubscriptionEvent(PublicationEvent e)
         {
             OnNotifySubscription(e);
         }
@@ -293,67 +310,6 @@ namespace SESDAD
         }
     }
 
-    [Serializable]
-    public class PuppetMasterEventArgs
-    {
-        PMEType type;
-        string siteName;
-        string brokerName;
-        string address;
-        Event ev;
-        string logMessage;
-
-        public PMEType Type
-        {
-            get { return type; }
-            set { type = value; }
-        }
-        public string SiteName
-        {
-            get { return siteName; }
-            set { siteName = value; }
-        }
-        public string Address
-        {
-            get { return address; }
-            set { address = value; }
-        }
-        public Event Ev
-        {
-            get{ return ev; }
-            set{ ev = value; }
-        }
-
-        public string LogMessage
-        {
-            get{return logMessage;}
-            set{logMessage = value;}
-        }
-
-        public string BrokerName
-        {
-            get{return brokerName;}
-            set{brokerName = value;}
-        }
-
-        public PuppetMasterEventArgs(PMEType type)
-        {
-            this.Type = type;
-        }
-
-        public PuppetMasterEventArgs(string address, string broker_name)
-        {
-            this.Type = PMEType.Register;
-            this.brokerName = broker_name;
-            this.Address = address;
-        }
-        public PuppetMasterEventArgs(Event ev)
-        {
-            this.Type = PMEType.Notify;
-            this.Ev = ev;
-        }
-    }
-
     //public class SESDadQueue : MarshalByRefObject
     //{
     //    private Queue<Event> eventQueue;
@@ -364,22 +320,130 @@ namespace SESDAD
     //}
 
     [Serializable]
-    public class Event
+    public enum EventType { Publication, Subscription, Unsubscription}
+
+    public interface EventInterface
+    {
+        EventType GetEventType();
+    }
+
+    public interface PublicationEventInterface : EventInterface
+    {
+        string GetTopic();
+        string GetMessage();
+        string GetPublisher();
+        int GetSeqNumber();
+        string GetLastHop();
+    }
+
+    public interface SubUnsubEventInterface : EventInterface
+    {
+        string GetSubUnsubAddress();
+        string GetSubUnsubTopic();
+    }
+
+    [Serializable]
+    public class PublicationEvent : PublicationEventInterface
     {
         public string topic;
         public string eventMessage;
         public string publisher;
         public int SequenceNumber;
         public string lastHop;
-        public Event(string message, string topic, string lastHop)
+
+        /// <summary>
+        /// Use this contructor to create a "Publication" Event.
+        /// </summary>
+        /// <param name="message"></param>
+        /// <param name="topic"></param>
+        /// <param name="lastHop"></param>
+        public PublicationEvent(string message, string topic, string lastHop)
         {
             eventMessage = message;
             this.topic = topic;
             this.lastHop = lastHop;
         }
+
         public string Message()
         {
             return "Topic: " + topic + Environment.NewLine + "Message: " + eventMessage;
+        }
+
+        public string GetTopic()
+        {
+            return topic;
+        }
+
+        public string GetMessage()
+        {
+            return eventMessage;
+        }
+
+        public string GetPublisher()
+        {
+            return publisher;
+        }
+
+        public int GetSeqNumber()
+        {
+            return SequenceNumber;
+        }
+
+        public string GetLastHop()
+        {
+            return lastHop;
+        }
+
+        public EventType GetEventType()
+        {
+            return EventType.Publication;
+        }
+    }
+
+    [Serializable]
+    public abstract class SubUnsubEvent : SubUnsubEventInterface
+    {
+        public string subUnsubAddress;
+        public string subUnsubTopic;
+
+        public string GetSubUnsubAddress()
+        {
+            return subUnsubAddress;
+        }
+        public string GetSubUnsubTopic()
+        {
+            return subUnsubTopic;
+        }
+        public abstract EventType GetEventType();
+    }
+
+    [Serializable]
+    public class SubscriptionEvent : SubUnsubEvent
+    {
+        public SubscriptionEvent(string topic, string address)
+        {
+            subUnsubAddress = address;
+            subUnsubTopic = topic;
+        }
+
+        public override EventType GetEventType()
+        {
+            return EventType.Subscription;
+        }
+    }
+
+    [Serializable]
+    public class UnsubscriptionEvent : SubUnsubEvent
+    {
+        public UnsubscriptionEvent(string topic, string address)
+        {
+            subUnsubAddress = address;
+            subUnsubTopic = topic;
+        }
+
+        public override EventType GetEventType()
+        {
+            return EventType.Unsubscription;
         }
     }
 }

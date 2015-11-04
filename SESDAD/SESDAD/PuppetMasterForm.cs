@@ -13,8 +13,9 @@ namespace SESDAD
 {
     public partial class PuppetMasterForm : Form
     {
-        public PuppetMasterFormEvent OnBajorasPrint;
-        public PuppetMasterFormEvent OnSingleCommand;
+        public PuppetMasterFormEventDelegate OnBajorasPrint;
+        public PuppetMasterFormEventDelegate OnSingleCommand;
+        public PuppetMasterFormEventDelegate OnScriptCommands;
         public PuppetMasterForm()
         {
             InitializeComponent();
@@ -34,6 +35,11 @@ namespace SESDAD
         private void single_command_button_Click(object sender, EventArgs e)
         {
             new Thread(() => OnSingleCommand(single_command_box.Text)).Start();
+        }
+
+        private void script_run_button_Click(object sender, EventArgs e)
+        {
+            new Thread(() => OnScriptCommands(script_text_box.Text)).Start();
         }
     }
 }

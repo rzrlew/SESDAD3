@@ -33,7 +33,11 @@
             this.single_command_box = new System.Windows.Forms.TextBox();
             this.single_command_button = new System.Windows.Forms.Button();
             this.single_command_group_box = new System.Windows.Forms.GroupBox();
+            this.script_text_box = new System.Windows.Forms.TextBox();
+            this.script_group_box = new System.Windows.Forms.GroupBox();
+            this.script_run_button = new System.Windows.Forms.Button();
             this.single_command_group_box.SuspendLayout();
+            this.script_group_box.SuspendLayout();
             this.SuspendLayout();
             // 
             // outputWindow
@@ -84,11 +88,41 @@
             this.single_command_group_box.TabStop = false;
             this.single_command_group_box.Text = "Single Command";
             // 
+            // script_text_box
+            // 
+            this.script_text_box.Location = new System.Drawing.Point(6, 19);
+            this.script_text_box.Multiline = true;
+            this.script_text_box.Name = "script_text_box";
+            this.script_text_box.Size = new System.Drawing.Size(285, 368);
+            this.script_text_box.TabIndex = 5;
+            // 
+            // script_group_box
+            // 
+            this.script_group_box.Controls.Add(this.script_run_button);
+            this.script_group_box.Controls.Add(this.script_text_box);
+            this.script_group_box.Location = new System.Drawing.Point(278, 102);
+            this.script_group_box.Name = "script_group_box";
+            this.script_group_box.Size = new System.Drawing.Size(298, 422);
+            this.script_group_box.TabIndex = 6;
+            this.script_group_box.TabStop = false;
+            this.script_group_box.Text = "Script";
+            // 
+            // script_run_button
+            // 
+            this.script_run_button.Location = new System.Drawing.Point(218, 393);
+            this.script_run_button.Name = "script_run_button";
+            this.script_run_button.Size = new System.Drawing.Size(73, 23);
+            this.script_run_button.TabIndex = 4;
+            this.script_run_button.Text = "Run Script";
+            this.script_run_button.UseVisualStyleBackColor = true;
+            this.script_run_button.Click += new System.EventHandler(this.script_run_button_Click);
+            // 
             // PuppetMasterForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(659, 623);
+            this.Controls.Add(this.script_group_box);
             this.Controls.Add(this.single_command_group_box);
             this.Controls.Add(this.bajorasPrintButton);
             this.Controls.Add(this.outputWindow);
@@ -96,6 +130,8 @@
             this.Text = "PuppetMasterForm";
             this.single_command_group_box.ResumeLayout(false);
             this.single_command_group_box.PerformLayout();
+            this.script_group_box.ResumeLayout(false);
+            this.script_group_box.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -108,5 +144,8 @@
         private System.Windows.Forms.TextBox single_command_box;
         private System.Windows.Forms.Button single_command_button;
         private System.Windows.Forms.GroupBox single_command_group_box;
+        private System.Windows.Forms.TextBox script_text_box;
+        private System.Windows.Forms.GroupBox script_group_box;
+        private System.Windows.Forms.Button script_run_button;
     }
 }

@@ -32,7 +32,7 @@ namespace SESDADPublisher
                     string topic = Console.ReadLine();
                     Console.WriteLine("insert: [Message]...");
                     string message = Console.ReadLine();
-                    Event e = new Event(message, topic, pub.remoteBroker.name);
+                    PublicationEvent e = new PublicationEvent(message, topic, pub.remoteBroker.name);
                     pub.publishEvent(e);
                 }
             }
@@ -53,7 +53,7 @@ namespace SESDADPublisher
 
         private void HandlePublishEvent(string topic, string message)
         {
-            Event e = new Event(message, topic, remoteBroker.name);
+            PublicationEvent e = new PublicationEvent(message, topic, remoteBroker.name);
             publishEvent(e);
         }
 
@@ -62,7 +62,7 @@ namespace SESDADPublisher
             return "[Publisher - " + this.address + "] - Sequence number: " + SequenceNumber;
         }
 
-        public void publishEvent(Event e)
+        public void publishEvent(PublicationEvent e)
         {
             e.publisher = address;
             e.SequenceNumber = ++SequenceNumber;    // 

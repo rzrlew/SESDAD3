@@ -25,7 +25,7 @@ namespace SESDADBroker
         List<SubscriptionInfo> subscriptionsList = new List<SubscriptionInfo>();// stores information regarding subscriptions[subscriber][topic]  
         List<PublisherInfo> publicationList = new List<PublisherInfo>();
 
-        List<Event> FIFOWaitQueue = new List<Event>();
+        List<PublicationEvent> FIFOWaitQueue = new List<PublicationEvent>();
         
 
         public static void Main(string[] args)
@@ -55,7 +55,7 @@ namespace SESDADBroker
             Console.WriteLine("Creating remote broker on " + config.processAddress);
             configuration = config;
             remoteBroker = new RemoteBroker(slaveAddress);
-            remoteBroker.floodEvents += new NotifyEvent(FIFOFlood);
+            remoteBroker.floodEvents += new NotifyEventDelegate(FIFOFlood);
             remoteBroker.OnSubscribe += new PubSubEventDelegate(Subscription);
             remoteBroker.OnUnsubscribe += new PubSubEventDelegate(Unsubscription);
             remoteBroker.OnStatusRequest = new StatusRequestDelegate(SendStatus);
@@ -109,7 +109,7 @@ namespace SESDADBroker
             info.topics.Remove(topic);
         }
 
-        public void SendEventLogWork(Event e)
+        public void SendEventLogWork(PublicationEvent e)
         {
             remoteSlave.SendLog("'" + configuration.processName + "' got event!" + Environment.NewLine + "[Topic]: " + e.topic + Environment.NewLine + "[Message]: " + e.eventMessage);
         }
@@ -157,7 +157,7 @@ namespace SESDADBroker
             return (parentBroker == null) ? true : false;
         }
 
-        public bool checkTopicInterest(Event e, string topic)
+        public bool checkTopicInterest(PublicationEvent e, string topic)
         {
             string[] eventArgs = e.topic.Split('/');
             string[] topicArgs = topic.Split('/');
@@ -197,7 +197,7 @@ namespace SESDADBroker
             }
         }
 
-        public void Flood(Event e)
+        public void Flood(PublicationEvent e)
         {
             Thread thread_log = new Thread(() => SendEventLogWork(e));
             Thread thread_1 = new Thread(() => FloodWork(e));
@@ -206,7 +206,7 @@ namespace SESDADBroker
             thread_1.Start();
             thread_2.Start();
         }
-        public void FIFOFlood(Event e)
+        public void FIFOFlood(PublicationEvent e)
         {
             Thread thread_log = new Thread(() => SendEventLogWork(e));
             Thread thread_1 = new Thread(() => FloodWork(e));
@@ -215,7 +215,7 @@ namespace SESDADBroker
             thread_1.Start();
             thread_2.Start();
         }
-        public void createPublisherInfo(Event e)
+        public void createPublisherInfo(PublicationEvent e)
         {
             try
             {
@@ -232,7 +232,7 @@ namespace SESDADBroker
             }
         }
 
-        public void sendToSubscriberWork(Event e)
+        public void sendToSubscriberWork(PublicationEvent e)
         {
             if (subscriptionsList.Any())
             {
@@ -250,7 +250,7 @@ namespace SESDADBroker
             }
         }
 
-        public void FloodWork(Event e)
+        public void FloodWork(PublicationEvent e)
         {
             string lastHopName = e.lastHop;
             e.lastHop = name;
@@ -275,7 +275,7 @@ namespace SESDADBroker
         public void getNextFIFOEvent(string address)
         {
             PublisherInfo info = SearchPublication(address);
-            foreach (Event e in FIFOWaitQueue)
+            foreach (PublicationEvent e in FIFOWaitQueue)
             {
                 if(e.SequenceNumber == info.LastSeqNumber + 1)
                 {
@@ -283,7 +283,7 @@ namespace SESDADBroker
                 }
             }
         }
-        public void sendFIFOEvents(Event e)
+        public void sendFIFOEvents(PublicationEvent e)
         {
             if (subscriptionsList.Any())
             {

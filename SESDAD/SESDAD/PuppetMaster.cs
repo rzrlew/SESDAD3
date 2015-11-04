@@ -14,7 +14,7 @@ using System.Net.Sockets;
 
 namespace SESDAD
 {
-    public delegate void PuppetMasterFormEvent(string msg);
+    public delegate void PuppetMasterFormEventDelegate(string msg);
     
     public class PuppetMaster
     {
@@ -52,14 +52,15 @@ namespace SESDAD
         public PuppetMaster()
         {
             form = new PuppetMasterForm();
-            form.OnBajorasPrint += new PuppetMasterFormEvent(ShowMessage);
-            form.OnSingleCommand = new PuppetMasterFormEvent(RunSingleCommand);
+            form.OnBajorasPrint += new PuppetMasterFormEventDelegate(ShowMessage);
+            form.OnSingleCommand = new PuppetMasterFormEventDelegate(RunSingleCommand);
+            form.OnScriptCommands = new PuppetMasterFormEventDelegate(RunScript);
             TcpChannel channel = new TcpChannel(puppetMasterPort);
             ChannelServices.RegisterChannel(channel, true);
             RemotePuppetMaster remotePM = new RemotePuppetMaster();
             remotePM.slaveSignIn += new SESDADSlaveConfigurationDelegate(RegisterSlave);
-            remotePM.configRequest += new SESDADconfiguration(searchConfigList);
-            remotePM.OnLogMessage += new PuppetMasterEvent(ShowLog);
+            remotePM.configRequest += new SESDADconfigurationDelegate(searchConfigList);
+            remotePM.OnLogMessage += new PuppetMasterLogEventDelegate(ShowLog);
             RemotingServices.Marshal(remotePM, "puppetmaster");
             parseConfigFile(TestConstants.configFilePath);
             PopulateAddressHash();
@@ -75,12 +76,13 @@ namespace SESDAD
                 }
             }
         }
-        private string ShowLog(PuppetMasterEventArgs args)
+        private string ShowLog(string logMessage)
         {
-            ShowMessage("[" + DateTime.Now.Hour + ":" + DateTime.Now.Minute + ":" + DateTime.Now.Second + "] " + args.LogMessage);
-            return "Done!";
+            ShowMessage(logMessage);
+            return "Message Logged!";
         }
-        SESDADConfig RegisterSlave()   // saves broker address in Hash
+
+        SESDADConfig RegisterSlave()
         {
             foreach(SESDADConfig config in configList)
             {
@@ -174,14 +176,17 @@ namespace SESDAD
                     }
                     break;
                 case "Freeze":
+                    ShowMessage("Freezing process '" + commandTokens[1] + "' !");
                     remoteProcess = (SESDADRemoteProcessControlInterface)Activator.GetObject(typeof(SESDADRemoteProcessControlInterface), processesAddressHash[commandTokens[1]]);
                     remoteProcess.Freeze();
                     break;
                 case "Unfreeze":
+                    ShowMessage("Unfreezing process '" + commandTokens[1] + "' !");
                     remoteProcess = (SESDADRemoteProcessControlInterface)Activator.GetObject(typeof(SESDADRemoteProcessControlInterface), processesAddressHash[commandTokens[1]]);
                     remoteProcess.Unfreeze();
                     break;
                 case "Crash":
+                    ShowMessage("Crashing process '" + commandTokens[1] + "' !");
                     remoteProcess = (SESDADRemoteProcessControlInterface)Activator.GetObject(typeof(SESDADRemoteProcessControlInterface), processesAddressHash[commandTokens[1]]);
                     try {
                         remoteProcess.Crash();
@@ -192,11 +197,22 @@ namespace SESDAD
                     }
                     break;
                 case "Publisher":
+                    ShowMessage("Asking publisher '" + commandTokens[1] + "' to publish on topic '" + commandTokens[3]  + "' !");
                     RemotePublisher remotePublisher = (RemotePublisher)Activator.GetObject(typeof(RemotePublisher), processesAddressHash[commandTokens[1]]);
                     remotePublisher.Publish(commandTokens[3], commandTokens[4]);
                     break;
             }
         }
+
+        private void RunScript(string script)
+        {
+            string[] lines = script.Split(Environment.NewLine.ToCharArray());
+            foreach(string line in lines)
+            {
+                RunSingleCommand(line);
+            }
+        }
+
         private StreamReader openConfigFile(string fileName)
         {
             return new StreamReader(File.Open(fileName, FileMode.Open));
@@ -204,8 +220,8 @@ namespace SESDAD
         void ShowMessage(string msg)    // print given string in puppet master form
         {
             object[] arguments = new object[1];
-            arguments[0] = msg + Environment.NewLine;
-            form.Invoke(new PuppetMasterFormEvent(form.appendToOutputWindow), arguments);
+            arguments[0] = "[" + DateTime.Now.Hour + ":" + DateTime.Now.Minute + ":" + DateTime.Now.Second + "] " + msg + Environment.NewLine;
+            form.Invoke(new PuppetMasterFormEventDelegate(form.appendToOutputWindow), arguments);
         }
     }
 }

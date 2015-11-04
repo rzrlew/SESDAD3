@@ -45,7 +45,7 @@ namespace SESDADSubscriber
             TcpChannel channel = new TcpChannel(new Uri(address).Port);//Creates the tcp channel on the port given in the config file....
             ChannelServices.RegisterChannel(channel, true);
             remoteSubscriber = new RemoteSubscriber();
-            remoteSubscriber.OnNotifySubscription += new NotifyEvent(ShowEvent);
+            remoteSubscriber.OnNotifySubscription += new NotifyEventDelegate(ShowEvent);
             remoteSubscriber.OnStatusRequest = new StatusRequestDelegate(SendStatus);
             serviceBroker = (RemoteBroker) Activator.GetObject(typeof(RemoteBroker), broker_address);
             string[] args = address.Split(':');
@@ -63,19 +63,21 @@ namespace SESDADSubscriber
             return msg;
         }
 
-        public void ShowEvent(Event e)
+        public void ShowEvent(PublicationEvent e)
         {
             Console.WriteLine("Receiving Subscription Event..." + Environment.NewLine + e.Message());
         }
 
         public void Subscribe(string topic)
         {
-            serviceBroker.Subscribe(topic, address);
+            SubscriptionEvent subEvent = new SubscriptionEvent(topic, address);
+            serviceBroker.Subscribe(subEvent);
         }
 
         public void Unsubscribe(string topic)
         {
-            serviceBroker.UnSubscribe(topic, address);
+            UnsubscriptionEvent unsubEvent = new UnsubscriptionEvent(topic, address);
+            serviceBroker.UnSubscribe(unsubEvent);
         }
     }
 }

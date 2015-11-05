@@ -11,6 +11,8 @@ using System.Runtime.Remoting.Channels;
 using System.Runtime.Remoting.Channels.Tcp;
 using System.Diagnostics;
 using System.Net.Sockets;
+using System.Collections;
+using System.Net;
 
 namespace SESDAD
 {
@@ -55,7 +57,14 @@ namespace SESDAD
             form.OnBajorasPrint += new PuppetMasterFormEventDelegate(ShowMessage);
             form.OnSingleCommand = new PuppetMasterFormEventDelegate(RunSingleCommand);
             form.OnScriptCommands = new PuppetMasterFormEventDelegate(RunScript);
-            TcpChannel channel = new TcpChannel(puppetMasterPort);
+            //--To receive the slave's IP address--
+            BinaryServerFormatterSinkProvider bp = new BinaryServerFormatterSinkProvider();
+            ClientIPServerSinkProvider csp = new ClientIPServerSinkProvider();
+            csp.Next = bp;
+            IDictionary ht = new Hashtable();
+            ht.Add("port", puppetMasterPort);
+            TcpChannel channel = new TcpChannel(ht, null, csp);
+            //--////--
             ChannelServices.RegisterChannel(channel, true);
             RemotePuppetMaster remotePM = new RemotePuppetMaster();
             remotePM.slaveSignIn += new SESDADSlaveConfigurationDelegate(RegisterSlave);
@@ -82,11 +91,16 @@ namespace SESDAD
             return "Message Logged!";
         }
 
-        SESDADConfig RegisterSlave()
-        {
-            foreach(SESDADConfig config in configList)
+        SESDADConfig RegisterSlave(string ip_address)
+        {     
+            foreach (SESDADConfig config in configList)
             {
-                if (!config.isDone)
+                string configHost = new Uri(config.processConfigList.FirstOrDefault().processAddress).Host;
+                if (configHost.Equals("localhost"))
+                {
+                    configHost = "127.0.0.1";
+                }
+                if (!config.isDone && configHost.Equals(ip_address))
                 {
                     config.isDone = true;
                     ShowMessage("Slave for '" + config.siteName + "' is registered!");

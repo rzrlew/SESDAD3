@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.Remoting.Messaging;
 using System.Text;
 using System.Threading;
 
@@ -15,7 +16,7 @@ namespace SESDAD
     public delegate void ConfigurationEventDelegate(List<string> addresses);
     public delegate SESDADConfig SESDADconfigurationDelegate(string SiteName);
     public delegate SESDADProcessConfiguration SESDADProcessConfigurationDelegate();
-    public delegate SESDADConfig SESDADSlaveConfigurationDelegate();
+    public delegate SESDADConfig SESDADSlaveConfigurationDelegate(string ip_address);
     public delegate string PuppetMasterLogEventDelegate(string message);
     public delegate void LogMessageDelegate(string message);
 
@@ -171,7 +172,8 @@ namespace SESDAD
 
         public SESDADConfig RegisterSlave()
         {
-            return slaveSignIn();
+            string clientIP = CallContext.GetData("ClientIPAddress").ToString();
+            return slaveSignIn(clientIP);
         }
 
         public int GetNextPortNumber()

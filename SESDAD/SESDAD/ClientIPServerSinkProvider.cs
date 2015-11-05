@@ -9,8 +9,7 @@ using System.Net;
 
 namespace SESDAD
 {
-    public class ClientIPServerSinkProvider :
-        IServerChannelSinkProvider
+    public class ClientIPServerSinkProvider : IServerChannelSinkProvider
     {
         private IServerChannelSinkProvider _nextProvider = null;
 
@@ -48,12 +47,8 @@ namespace SESDAD
 
 
 
-    public class ClientIPServerSink :
-        BaseChannelObjectWithProperties,
-        IServerChannelSink,
-        IChannelSinkBase
+    public class ClientIPServerSink : BaseChannelObjectWithProperties, IServerChannelSink, IChannelSinkBase
     {
-
         private IServerChannelSink _nextSink;
 
         public ClientIPServerSink(IServerChannelSink next)

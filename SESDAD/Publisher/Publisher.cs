@@ -53,13 +53,16 @@ namespace SESDADPublisher
 
         private void HandlePublishEvent(string topic, string message)
         {
+            Console.WriteLine("Publishing event on topic '" + topic + "'");
             PublicationEvent e = new PublicationEvent(message, topic, remoteBroker.name);
             publishEvent(e);
         }
 
         public string SendStatus()
         {
-            return "[Publisher - " + this.address + "] - Sequence number: " + SequenceNumber;
+            string msg = "[Publisher - " + new Uri(this.address).LocalPath.Split('/')[1] + "] Messages Sequence number: " + SequenceNumber + Environment.NewLine;
+            msg += "[Publisher - " + new Uri(this.address).LocalPath.Split('/')[1] + "] Connecte to broker at " + brokerAddress;
+            return msg;
         }
 
         public void publishEvent(PublicationEvent e)

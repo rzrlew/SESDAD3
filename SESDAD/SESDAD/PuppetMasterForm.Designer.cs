@@ -47,7 +47,8 @@
             this.outputWindow.Location = new System.Drawing.Point(5, 12);
             this.outputWindow.Multiline = true;
             this.outputWindow.Name = "outputWindow";
-            this.outputWindow.Size = new System.Drawing.Size(267, 578);
+            this.outputWindow.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+            this.outputWindow.Size = new System.Drawing.Size(431, 578);
             this.outputWindow.TabIndex = 0;
             // 
             // bajorasPrintButton
@@ -62,7 +63,7 @@
             // 
             // single_command_box
             // 
-            this.single_command_box.Location = new System.Drawing.Point(6, 19);
+            this.single_command_box.Location = new System.Drawing.Point(5, 19);
             this.single_command_box.Name = "single_command_box";
             this.single_command_box.Size = new System.Drawing.Size(286, 20);
             this.single_command_box.TabIndex = 2;
@@ -81,7 +82,7 @@
             // 
             this.single_command_group_box.Controls.Add(this.single_command_button);
             this.single_command_group_box.Controls.Add(this.single_command_box);
-            this.single_command_group_box.Location = new System.Drawing.Point(278, 12);
+            this.single_command_group_box.Location = new System.Drawing.Point(442, 14);
             this.single_command_group_box.Name = "single_command_group_box";
             this.single_command_group_box.Size = new System.Drawing.Size(298, 73);
             this.single_command_group_box.TabIndex = 4;
@@ -93,6 +94,7 @@
             this.script_text_box.Location = new System.Drawing.Point(6, 19);
             this.script_text_box.Multiline = true;
             this.script_text_box.Name = "script_text_box";
+            this.script_text_box.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
             this.script_text_box.Size = new System.Drawing.Size(285, 368);
             this.script_text_box.TabIndex = 5;
             // 
@@ -100,7 +102,7 @@
             // 
             this.script_group_box.Controls.Add(this.script_run_button);
             this.script_group_box.Controls.Add(this.script_text_box);
-            this.script_group_box.Location = new System.Drawing.Point(278, 102);
+            this.script_group_box.Location = new System.Drawing.Point(442, 104);
             this.script_group_box.Name = "script_group_box";
             this.script_group_box.Size = new System.Drawing.Size(298, 422);
             this.script_group_box.TabIndex = 6;
@@ -121,7 +123,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(659, 623);
+            this.ClientSize = new System.Drawing.Size(752, 623);
             this.Controls.Add(this.script_group_box);
             this.Controls.Add(this.single_command_group_box);
             this.Controls.Add(this.bajorasPrintButton);

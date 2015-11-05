@@ -10,6 +10,7 @@ namespace SESDAD
 {
     public delegate void NotifyEventDelegate(PublicationEvent e);
     public delegate string StatusRequestDelegate();
+    public delegate void SubsRequestDelegate(string topic);
     public delegate void PubSubEventDelegate(string topic, string address);
     public delegate void ConfigurationEventDelegate(List<string> addresses);
     public delegate SESDADConfig SESDADconfigurationDelegate(string SiteName);
@@ -24,6 +25,17 @@ namespace SESDAD
         void Freeze();
         void Unfreeze();
         void Crash();
+    }
+
+    public interface SESDADPublisherControlInterface : SESDADRemoteProcessControlInterface
+    {
+        void Publish(string topic, string message);
+    }
+
+    public interface SESDADSubscriberControlInterface : SESDADRemoteProcessControlInterface
+    {
+        void Subscribe(string topic);
+        void Unsubscribe(string topic);
     }
 
     /// <summary>
@@ -112,8 +124,7 @@ namespace SESDAD
                     case EventType.Unsubscription:
                         UnSubscribe((UnsubscriptionEvent)e);
                         break;
-                }
-                
+                }  
             }
         }
 
@@ -179,7 +190,7 @@ namespace SESDAD
         }
     }
 
-    public class RemotePublisher : MarshalByRefObject, SESDADRemoteProcessControlInterface
+    public class RemotePublisher : MarshalByRefObject, SESDADPublisherControlInterface
     {
         public StatusRequestDelegate OnStatusRequest;
         public PubSubEventDelegate OnPublishRequest;
@@ -213,14 +224,26 @@ namespace SESDAD
         }
     }
 
-    public class RemoteSubscriber : MarshalByRefObject, SESDADRemoteProcessControlInterface
+    public class RemoteSubscriber : MarshalByRefObject, SESDADSubscriberControlInterface
     {
         private bool isFrozen = false;
         public NotifyEventDelegate OnNotifySubscription;
         public StatusRequestDelegate OnStatusRequest;
+        public SubsRequestDelegate OnSubscriptionRequest;
+        public SubsRequestDelegate OnUnsubscriptionRequest;
         public void NotifySubscriptionEvent(PublicationEvent e)
         {
             OnNotifySubscription(e);
+        }
+
+        public void Subscribe(string topic)
+        {
+            OnSubscriptionRequest(topic);
+        }
+
+        public void Unsubscribe(string topic)
+        {
+            OnUnsubscriptionRequest(topic);
         }
 
         public string Status()

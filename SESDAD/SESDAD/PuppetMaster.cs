@@ -171,6 +171,7 @@ namespace SESDAD
                 case "Status":
                     foreach (KeyValuePair<string, string> entry in processesAddressHash)
                     {
+                        ShowMessage("----Showing status for process '" + entry.Key + "'----");
                         remoteProcess = (SESDADRemoteProcessControlInterface)Activator.GetObject(typeof(SESDADRemoteProcessControlInterface), entry.Value);
                         ShowMessage(remoteProcess.Status());
                     }
@@ -197,9 +198,29 @@ namespace SESDAD
                     }
                     break;
                 case "Publisher":
-                    ShowMessage("Asking publisher '" + commandTokens[1] + "' to publish on topic '" + commandTokens[3]  + "' !");
+                    ShowMessage("Asking publisher '" + commandTokens[1] + "' to publish on topic '" + commandTokens[5]  + "' !");
                     RemotePublisher remotePublisher = (RemotePublisher)Activator.GetObject(typeof(RemotePublisher), processesAddressHash[commandTokens[1]]);
-                    remotePublisher.Publish(commandTokens[3], commandTokens[4]);
+                    for (int i=0; i < int.Parse(commandTokens[3]); i++)
+                    {
+                        remotePublisher.Publish(commandTokens[5], i.ToString());
+                        Thread.Sleep(int.Parse(commandTokens[7]));
+                    }
+                    break;
+                case "Subscriber":
+                    RemoteSubscriber remoteSubscriber = (RemoteSubscriber)Activator.GetObject(typeof(RemoteSubscriber), processesAddressHash[commandTokens[1]]);
+                    switch (commandTokens[2])
+                    {
+                        case "Subscribe":
+                            remoteSubscriber.Subscribe(commandTokens[3]);
+                            break;
+                        case "Unsubscribe":
+                            remoteSubscriber.Unsubscribe(commandTokens[3]);
+                            break;
+                    }
+                    break;             
+                case "Wait":
+                    Console.WriteLine("Sleeping for " + commandTokens[1] + " milliseconds!");
+                    Thread.Sleep(int.Parse(commandTokens[1]));
                     break;
             }
         }

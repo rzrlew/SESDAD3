@@ -111,7 +111,9 @@ namespace SESDADBroker
 
         public void SendEventLogWork(PublicationEvent e)
         {
-            remoteSlave.SendLog("'" + configuration.processName + "' got event!" + Environment.NewLine + "[Topic]: " + e.topic + Environment.NewLine + "[Message]: " + e.eventMessage);
+            string logMessage = "[Broker - '" + name + "']----Got SESDAD Message Event!----" + Environment.NewLine + "[Broker - '" + name + "'][From: '" + e.GetPublisher() + "'] Topic: " + e.topic + Environment.NewLine + "[Broker - '" + name + "'][From: '" + e.GetPublisher() + "'] Message: " + e.eventMessage + Environment.NewLine + "[Broker - '" + name + "'][From: '" + e.GetPublisher() + "'] Sequence: " + e.GetSeqNumber().ToString();
+            logMessage += Environment.NewLine + "[Broker - '" + configuration.processName + "']----/SESDAD Message Event----";
+            remoteSlave.SendLog(logMessage);
         }
 
         public PublisherInfo SearchPublication(string address)
@@ -242,6 +244,7 @@ namespace SESDADBroker
                     {
                         if (checkTopicInterest(e, topic))
                         {
+                            Console.WriteLine("Sending event to subscriber at " + info.subscription_address);
                             RemoteSubscriber subscriber = (RemoteSubscriber)Activator.GetObject(typeof(RemoteSubscriber), info.subscription_address);
                             subscriber.NotifySubscriptionEvent(e);
                         }
@@ -283,6 +286,7 @@ namespace SESDADBroker
                 }
             }
         }
+
         public void sendFIFOEvents(PublicationEvent e)
         {
             if (subscriptionsList.Any())
@@ -311,8 +315,6 @@ namespace SESDADBroker
             }
         }
     }
-
-
 
     public class PublisherInfo  // alterar esta estrutura para List<string> topic
     {

@@ -47,6 +47,8 @@ namespace SESDADSubscriber
             remoteSubscriber = new RemoteSubscriber();
             remoteSubscriber.OnNotifySubscription += new NotifyEventDelegate(ShowEvent);
             remoteSubscriber.OnStatusRequest = new StatusRequestDelegate(SendStatus);
+            remoteSubscriber.OnSubscriptionRequest = new SubsRequestDelegate(Subscribe);
+            remoteSubscriber.OnUnsubscriptionRequest = new SubsRequestDelegate(Unsubscribe);
             serviceBroker = (RemoteBroker) Activator.GetObject(typeof(RemoteBroker), broker_address);
             string[] args = address.Split(':');
             string[] portAndName = args[2].Split('/');
@@ -55,11 +57,13 @@ namespace SESDADSubscriber
 
         public string SendStatus()
         {
-            string msg = "[Subscriber - " + this.address + "] Broker: " + serviceBroker.name + Environment.NewLine;
-            foreach(string topic in topicList)
+            string msg = "[Subscriber - " + new Uri(this.address).LocalPath.Split('/')[1] + "] Broker: " + serviceBroker.name + Environment.NewLine;
+            msg += "[Subscriber - " + new Uri(this.address).LocalPath.Split('/')[1] + "]----Subscriptions----";
+            foreach (string topic in topicList)
             {
-                msg += "[Subscriber - " + this.address + "] Topic: " + topic + Environment.NewLine;
+                msg += "[Subscriber - " + new Uri(this.address).LocalPath.Split('/')[1] + "] Topic: " + topic + Environment.NewLine;
             }
+            msg += "[Subscriber - " + new Uri(this.address).LocalPath.Split('/')[1] + "]----/Subscriptions----";
             return msg;
         }
 
@@ -70,6 +74,7 @@ namespace SESDADSubscriber
 
         public void Subscribe(string topic)
         {
+            Console.WriteLine("Subscribing events on topic '" + topic + "'");
             SubscriptionEvent subEvent = new SubscriptionEvent(topic, address);
             serviceBroker.Subscribe(subEvent);
         }

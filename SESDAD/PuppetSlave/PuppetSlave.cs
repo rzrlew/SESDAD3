@@ -82,6 +82,8 @@ namespace SESDAD
                 {
                     case "broker":
                         SESDADBrokerConfig brokerConf = new SESDADBrokerConfig();
+                        brokerConf.orderMode = configuration.orderMode;
+                        brokerConf.routingPolicy = configuration.routingPolicy;
                         brokerConf.parentBrokerAddress = config.processParentAddress;
                         brokerConf.processAddress = config.processAddress;
                         brokerConf.processName = config.processName;
@@ -97,8 +99,7 @@ namespace SESDAD
                         return pubSubConf;
 
                     case default(string):
-                        throw new NotImplementedException();
-                        
+                        throw new NotImplementedException();                      
                 }
             }
             throw new NotImplementedException();
@@ -135,7 +136,7 @@ namespace SESDAD
                         break;
 
                     case "subscriber":
-                        Console.WriteLine("Starting subscriber process...");
+                        Console.WriteLine("Starting subscriber process linked with broker at " + processConf.processParentAddress);
                         Process.Start(TestConstants.subscriberPath, processConf.processAddress + " " + processConf.processParentAddress);
                         SendLogMessage("Slave started subscriber on '" + configuration.siteName + "'!");
                         break;
@@ -145,6 +146,7 @@ namespace SESDAD
                         Process.Start(TestConstants.publisherPath, processConf.processAddress + " " + processConf.processParentAddress);
                         SendLogMessage("Slave started publisher on '" + configuration.siteName + "'!");
                         break;
+
                 }
             }
         }

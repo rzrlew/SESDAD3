@@ -1,15 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Runtime.Remoting.Channels.Tcp;
 using System.Runtime.Remoting.Channels;
 using System.Runtime.Remoting;
+using System.Threading;
 using SESDAD;
 
 namespace SESDADPublisher
 {
+    
     class Publisher
     {
         public string address;
@@ -22,20 +20,10 @@ namespace SESDADPublisher
         static void Main(string[] args)
         {
             Publisher pub = new Publisher(args[0], args[1]);
-            Console.WriteLine("write [publish] to create and flood event or [quit] to exit...");
+            Console.WriteLine("press to test fifo...");
             string input = Console.ReadLine();
-            while (!input.Equals("quit"))
-            {
-                if (input.Equals("publish"))
-                {
-                    Console.WriteLine("insert: [Topic]...");
-                    string topic = Console.ReadLine();
-                    Console.WriteLine("insert: [Message]...");
-                    string message = Console.ReadLine();
-                    PublicationEvent e = new PublicationEvent(message, topic, pub.remoteBroker.name);
-                    pub.publishEvent(e);
-                }
-            }
+            pub.testFIFO();
+            Console.ReadLine();
         }
 
         public Publisher(string address, string brokerAddress)
@@ -44,33 +32,54 @@ namespace SESDADPublisher
             this.brokerAddress = brokerAddress;
             remotePublisher = new RemotePublisher();
             remotePublisher.OnStatusRequest = new StatusRequestDelegate(SendStatus);
-            remotePublisher.OnPublishRequest = new PubSubEventDelegate(HandlePublishEvent);
+            remotePublisher.OnPublishRequest = new PublicationEventDelegate(HandlePublishEvent);
             channel = new TcpChannel(new Uri(address).Port);
             ChannelServices.RegisterChannel(channel, true);
             remoteBroker = (RemoteBroker) Activator.GetObject(typeof(RemoteBroker), brokerAddress);
             RemotingServices.Marshal(remotePublisher, new Uri(address).LocalPath.Split('/')[1]);
         }
 
-        private void HandlePublishEvent(string topic, string message)
+        private void publishEvent(PublicationEvent e)
         {
-            Console.WriteLine("Publishing event on topic '" + topic + "'");
-            PublicationEvent e = new PublicationEvent(message, topic, remoteBroker.name);
-            publishEvent(e);
+            lock(this)
+            {
+                e.publisher = address;
+                e.SequenceNumber = SequenceNumber++;
+                remoteBroker.RouteEvent(e);
+            }
         }
 
-        public string SendStatus()
+        private void HandlePublishEvent(string topic, int numEvents, int interval)
+        {
+            new Thread(() =>
+            {
+                Console.WriteLine("Sending " + numEvents + " events on topic " + topic);
+                for (int i = 0; i < numEvents; i++)
+                {
+                    Console.WriteLine("Publishing event on topic '" + topic + "'");
+                    PublicationEvent e = new PublicationEvent(SequenceNumber.ToString(), topic, remoteBroker.name);
+                    publishEvent(e);
+                    Thread.Sleep(interval);
+                }
+            }).Start();
+        }
+        private string SendStatus()
         {
             string msg = "[Publisher - " + new Uri(this.address).LocalPath.Split('/')[1] + "] Messages Sequence number: " + SequenceNumber + Environment.NewLine;
             msg += "[Publisher - " + new Uri(this.address).LocalPath.Split('/')[1] + "] Connecte to broker at " + brokerAddress;
             return msg;
         }
-
-        public void publishEvent(PublicationEvent e)
+        private void testFIFO()
         {
-            e.publisher = address;
-            e.SequenceNumber = ++SequenceNumber;    // 
-            //remoteBroker.Advertise(e.topic, address);
-            remoteBroker.Flood(e);
+            for(int i = 5; i > 0; i--)
+            {
+                PublicationEvent e = new PublicationEvent(i.ToString(), "test", remoteBroker.name);
+                e.SequenceNumber = i;
+                e.publisher = address;
+                remoteBroker.RouteEvent(e);
+            }
         }
+
+        
     }
 }

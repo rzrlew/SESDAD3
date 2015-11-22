@@ -21,12 +21,24 @@ namespace SESDADBroker
         RemoteBroker remoteBroker;
         RemoteBroker parentBroker = null;
         List<RemoteBroker> childBrokers = new List<RemoteBroker>();
-
         List<SubscriptionInfo> subscriptionsList = new List<SubscriptionInfo>();// stores information regarding subscriptions[subscriber][topic]  
         List<PublisherInfo> publicationList = new List<PublisherInfo>();
-
         List<PublicationEvent> FIFOWaitQueue = new List<PublicationEvent>();
-        
+
+        public string Name
+        {
+            set
+            {
+                name = value;
+                remoteBroker.name = name;
+            }
+        }
+        public TcpChannel Channel
+        {
+            get { return channel; }
+            set { channel = value; }
+        }
+
 
         public static void Main(string[] args)
         {
@@ -55,11 +67,10 @@ namespace SESDADBroker
             Console.WriteLine("Creating remote broker on " + config.processAddress);
             configuration = config;
             remoteBroker = new RemoteBroker(slaveAddress);
-            remoteBroker.floodEvents += new NotifyEventDelegate(FIFOFlood);
+            remoteBroker.OnEventReceived = new NotifyEventDelegate(EventRouting);           
             remoteBroker.OnSubscribe += new PubSubEventDelegate(Subscription);
             remoteBroker.OnUnsubscribe += new PubSubEventDelegate(Unsubscription);
             remoteBroker.OnStatusRequest = new StatusRequestDelegate(SendStatus);
-            //remoteBroker.OnAdvertise += new PubSubEventDelegate(AdvertisePublish);
             Name = config.processName;
             if (config.parentBrokerAddress != null)
             {
@@ -71,54 +82,13 @@ namespace SESDADBroker
             {
                 SetChildren(config.childrenBrokerAddresses);
             }
-            RemotingServices.Marshal(remoteBroker, this.name);
+            RemotingServices.Marshal(remoteBroker, new Uri(configuration.processAddress).LocalPath.Split('/')[1]);
             Console.WriteLine("Broker is listening...");
         }
 
-        public string SendStatus()
+        private PublisherInfo SearchPublication(string address)
         {
-            string msg = "";
-            if (parentBroker != null)
-            {
-                msg += "[Broker - " + this.name + "] Parent: " + this.parentBroker.name + Environment.NewLine;
-            }
-            foreach(string childAddress in configuration.childrenBrokerAddresses)
-            {
-                msg += "[Broker - " + this.name + "] Child: " + childAddress + Environment.NewLine;
-            }
-            return msg;
-        }
-
-        public void Subscription(string topic, string address)
-        {
-            try
-            {
-                SubscriptionInfo info = SearchSubscription(address);
-                info.topics.Add(topic);
-            }
-            catch(NotImplementedException)
-            {
-                SubscriptionInfo info = new SubscriptionInfo(topic, address);
-                subscriptionsList.Add(info);
-            }
-        }
-
-        public void Unsubscription(string topic, string address)
-        {
-            SubscriptionInfo info = SearchSubscription(address);
-            info.topics.Remove(topic);
-        }
-
-        public void SendEventLogWork(PublicationEvent e)
-        {
-            string logMessage = "[Broker - '" + name + "']----Got SESDAD Message Event!----" + Environment.NewLine + "[Broker - '" + name + "'][From: '" + e.GetPublisher() + "'] Topic: " + e.topic + Environment.NewLine + "[Broker - '" + name + "'][From: '" + e.GetPublisher() + "'] Message: " + e.eventMessage + Environment.NewLine + "[Broker - '" + name + "'][From: '" + e.GetPublisher() + "'] Sequence: " + e.GetSeqNumber().ToString();
-            logMessage += Environment.NewLine + "[Broker - '" + configuration.processName + "']----/SESDAD Message Event----";
-            remoteSlave.SendLog(logMessage);
-        }
-
-        public PublisherInfo SearchPublication(string address)
-        {
-            foreach(PublisherInfo info in publicationList)
+            foreach (PublisherInfo info in publicationList)
             {
                 if (info.publication_address.Equals(address))
                 {
@@ -127,10 +97,9 @@ namespace SESDADBroker
             }
             throw new NotImplementedException("No publication found...");
         }
-
-        public SubscriptionInfo SearchSubscription(string address)
+        private SubscriptionInfo SearchSubscription(string address)
         {
-            foreach(SubscriptionInfo info in subscriptionsList)
+            foreach (SubscriptionInfo info in subscriptionsList)
             {
                 if (info.subscription_address.Equals(address))
                 {
@@ -139,27 +108,158 @@ namespace SESDADBroker
             }
             throw new NotImplementedException("No Subscription Found...");
         }
-
-        public string Name
+        private void CreatePublisherInfo(PublicationEvent e)
         {
-            set
+            lock (publicationList)
             {
-                name = value;
-                remoteBroker.name = name;
+                try
+                {
+                    PublisherInfo info = SearchPublication(e.publisher);
+                    if (!info.topics.Contains(e.topic))
+                    {
+                        info.topics.Add(e.topic);
+                    }
+                }
+                catch (NotImplementedException)
+                {
+                    PublisherInfo info = new PublisherInfo(e.topic, e.publisher);
+                    publicationList.Add(info);
+                }
             }
         }
-        public TcpChannel Channel
+        private void SendToSubscriberWork(PublicationEvent e)
         {
-            get {   return channel;     }
-            set {   channel = value;    }
+            lock (subscriptionsList)
+            {
+                if (subscriptionsList.Any())
+                {
+                    foreach (SubscriptionInfo info in subscriptionsList)
+                    {
+                        foreach (string topic in info.topics)
+                        {
+                            if (CheckTopicInterest(e, topic))
+                            {
+                                RemoteSubscriber subscriber = (RemoteSubscriber)Activator.GetObject(typeof(RemoteSubscriber), info.subscription_address);
+                                subscriber.NotifySubscriptionEvent(e);
+                                lock (FIFOWaitQueue)
+                                {
+                                    FIFOWaitQueue.Remove(e);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-
-        public bool isRoot() // checks if broker belongs to Root Node
+        public void FIFOSubscriberWork(string publicationAddress)
         {
-            return (parentBroker == null) ? true : false;
+            PublisherInfo info = SearchPublication(publicationAddress);
+            foreach (PublicationEvent e in FIFOWaitQueue)
+            {
+                if (info.LastSeqNumber + 1 == e.SequenceNumber && info.publication_address.Equals(e.publisher))
+                {
+                    SendToSubscriberWork(e);
+                    FIFOWaitQueue.Remove(e);
+                    info.LastSeqNumber = e.SequenceNumber;
+                    FIFOSubscriberWork(publicationAddress);
+                    break;
+                }
+            }
         }
+        public void FloodWork(PublicationEvent e)
+        {
+            string lastHopName = e.lastHop;
+            e.lastHop = name;
+            if (parentBroker != null && parentBroker.name != lastHopName)
+            {
+                Console.WriteLine("Sending event to " + parentBroker.name);
+                parentBroker.RouteEvent(e);
+            }
 
-        public bool checkTopicInterest(PublicationEvent e, string topic)
+            foreach (RemoteBroker child in childBrokers)
+            {
+                if (child.name != lastHopName)
+                {
+                    Console.WriteLine("Sending event to " + child.name);
+                    child.RouteEvent(e);
+                }
+            }
+        }
+        public void Subscription(string topic, string address)
+        {
+            lock (subscriptionsList)
+            {
+                try
+                {
+                    SubscriptionInfo info = SearchSubscription(address);
+                    info.topics.Add(topic);
+                }
+                catch (NotImplementedException)
+                {
+                    SubscriptionInfo info = new SubscriptionInfo(topic, address);
+                    subscriptionsList.Add(info);
+                }
+            }
+        }
+        public void Unsubscription(string topic, string address)
+        {
+            lock (subscriptionsList)
+            {
+                SubscriptionInfo info = SearchSubscription(address);
+                info.topics.Remove(topic);
+            }
+        }
+        public void SendEventLogWork(PublicationEvent e)
+        {
+            string logMessage = "[Broker - '" + name + "']----Got SESDAD Message Event!----" +
+                                "'" + name + "'][From: '" + e.GetPublisher() + "'] Topic: " + e.topic +
+                                "|| Message: " + e.eventMessage + "|| Sequence: " + e.GetSeqNumber().ToString() + Environment.NewLine;
+            remoteSlave.SendLog(logMessage);
+        }
+        public void EventRouting(PublicationEvent e)
+        {
+            CreatePublisherInfo(e);
+            lock (FIFOWaitQueue)
+            { 
+                FIFOWaitQueue.Add(e);
+            }
+            new Thread(() => SendEventLogWork(e)).Start();
+            switch (configuration.orderMode)
+            {
+                case OrderMode.NoOrder:
+                    new Thread(() => SendToSubscriberWork(e)).Start();
+                    break;
+                case OrderMode.FIFO:
+                    new Thread(() => {lock(FIFOWaitQueue){FIFOSubscriberWork(e.publisher);}}).Start();
+                    break;
+                case OrderMode.TotalOrder:
+                    throw new NotImplementedException("Total ordering is not implemented yet!");
+            }
+            switch (configuration.routingPolicy)
+            {
+                case "flooding":
+                    new Thread(() => FloodWork(e)).Start();
+                    break;
+                case "filter":
+                    throw new NotImplementedException("Filtering is not implemented yet!!!!!111!!!!");
+            }
+
+        }
+        public string SendStatus()
+        {
+            string msg = "[Broker - " + this.name + "]";
+            if (parentBroker != null)
+            {
+                msg +=  "Parent: " + this.parentBroker.name;
+            }
+            msg += "|| Children: ";
+            foreach (string childAddress in configuration.childrenBrokerAddresses)
+            {
+                msg += childAddress + " ; ";
+            }
+            return msg;
+        }
+        public bool CheckTopicInterest(PublicationEvent e, string topic)
         {
             string[] eventArgs = e.topic.Split('/');
             string[] topicArgs = topic.Split('/');
@@ -167,29 +267,24 @@ namespace SESDADBroker
             {
                 return true;
             }
-            if (eventArgs.Count() < topicArgs.Count())
-            {
-                return false;
-            }
             if(topicArgs[topicArgs.Count() - 1].Equals('*')) // check if the subscriber has interest in the subtopics
             {
-                for (int i = 0; i < topicArgs.Count(); i++)
+                for (int i = 0; !topicArgs[i].Equals('*'); i++)
                 {
                     if (!eventArgs[i].Equals(topicArgs[i]))     // verifies that the topic corresponds to a subtopic
                     {
                         return false;
                     }
                 }
+                return true;
             }
-            return true;
+            return false;
         }
-
-        private void SetParent(List<string> parentAddress) // add parent broker addresss to list
+        private void SetParent(List<string> parentAddress)
         {
             Console.WriteLine("Adding parent broker at: " + parentAddress.ElementAt(0));
             parentBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), parentAddress.ElementAt(0));
         }
-
         private void SetChildren(List<string> childrenAddresses)
         {
             foreach (string childAddress in childrenAddresses)
@@ -198,125 +293,9 @@ namespace SESDADBroker
                 childBrokers.Add((RemoteBroker)Activator.GetObject(typeof(RemoteBroker), childAddress));
             }
         }
-
-        public void Flood(PublicationEvent e)
-        {
-            Thread thread_log = new Thread(() => SendEventLogWork(e));
-            Thread thread_1 = new Thread(() => FloodWork(e));
-            Thread thread_2 = new Thread(() => sendToSubscriberWork(e));
-            thread_log.Start();
-            thread_1.Start();
-            thread_2.Start();
-        }
-        public void FIFOFlood(PublicationEvent e)
-        {
-            Thread thread_log = new Thread(() => SendEventLogWork(e));
-            Thread thread_1 = new Thread(() => FloodWork(e));
-            Thread thread_2 = new Thread(() => sendFIFOEvents(e));
-            thread_log.Start();
-            thread_1.Start();
-            thread_2.Start();
-        }
-        public void createPublisherInfo(PublicationEvent e)
-        {
-            try
-            {
-                PublisherInfo info = SearchPublication(e.publisher);
-                if (!info.topics.Contains(e.topic))
-                {
-                    info.topics.Add(e.topic);
-                }
-            }
-            catch (NotImplementedException)
-            {
-                PublisherInfo info = new PublisherInfo(e.topic, e.publisher);
-                publicationList.Add(info);
-            }
-        }
-
-        public void sendToSubscriberWork(PublicationEvent e)
-        {
-            if (subscriptionsList.Any())
-            {
-                foreach (SubscriptionInfo info in subscriptionsList)
-                {
-                    foreach (string topic in info.topics)
-                    {
-                        if (checkTopicInterest(e, topic))
-                        {
-                            Console.WriteLine("Sending event to subscriber at " + info.subscription_address);
-                            RemoteSubscriber subscriber = (RemoteSubscriber)Activator.GetObject(typeof(RemoteSubscriber), info.subscription_address);
-                            subscriber.NotifySubscriptionEvent(e);
-                        }
-                    }
-                }
-            }
-        }
-
-        public void FloodWork(PublicationEvent e)
-        {
-            string lastHopName = e.lastHop;
-            e.lastHop = name;
-            createPublisherInfo(e);
-
-            if (parentBroker != null && parentBroker.name != lastHopName)
-            {
-                Console.WriteLine("Sending event to " + parentBroker.name);
-                parentBroker.Flood(e);
-            }
-
-            foreach (RemoteBroker child in childBrokers)
-            {
-                if (child.name != lastHopName)
-                {
-                    Console.WriteLine("Sending event to " + child.name);
-                    child.Flood(e);
-                }
-            }
-        }
-       
-        public void getNextFIFOEvent(string address)
-        {
-            PublisherInfo info = SearchPublication(address);
-            foreach (PublicationEvent e in FIFOWaitQueue)
-            {
-                if(e.SequenceNumber == info.LastSeqNumber + 1)
-                {
-                    sendFIFOEvents(e);
-                }
-            }
-        }
-
-        public void sendFIFOEvents(PublicationEvent e)
-        {
-            if (subscriptionsList.Any())
-            {
-                foreach (SubscriptionInfo info in subscriptionsList)
-                {
-                    foreach (string topic in info.topics)
-                    {
-                        if (checkTopicInterest(e, topic))
-                        {
-                            RemoteSubscriber subscriber = (RemoteSubscriber)Activator.GetObject(typeof(RemoteSubscriber), info.subscription_address);
-                            PublisherInfo publisherInfo = SearchPublication(e.publisher);
-                            if (publisherInfo.LastSeqNumber + 1 == e.SequenceNumber)
-                            {
-                                subscriber.NotifySubscriptionEvent(e);
-                                ++publisherInfo.LastSeqNumber;
-                                getNextFIFOEvent(e.publisher);
-                            }
-                            else
-                            {
-                                FIFOWaitQueue.Add(e);
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 
-    public class PublisherInfo  // alterar esta estrutura para List<string> topic
+    public class PublisherInfo
     {
         public string publication_address;
         public List<string> topics = new List<string>();

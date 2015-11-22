@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Runtime.Remoting.Channels.Tcp;
 using System.Runtime.Remoting.Channels;
 using System.Runtime.Remoting;
+using System.Threading;
 using SESDAD;
 
 namespace SESDADSubscriber
@@ -15,28 +13,13 @@ namespace SESDADSubscriber
         public List<string> topicList = new List<string>();
         public RemoteBroker serviceBroker;
         public RemoteSubscriber remoteSubscriber;
+        private string brokerAddress;
         public string address;
         static void Main(string[] args)
         {
-            string input = "";
             Subscriber subs = new Subscriber(args[0], args[1]);  // arg[0] -> susbscriber address || arg[1] -> broker address
-            while (!input.Equals("quit"))
-            {
-                Console.WriteLine(  "write [topic] you wish to Subscribe..." 
-                                    + Environment.NewLine + "write [unsubscribe] to remove subscription of events...");
-                input = Console.ReadLine();        
-                if (input.Equals("unsubscribe"))
-                {
-                    Console.WriteLine("insert [topic] to unsubscribe...");
-                    string topic = Console.ReadLine();
-                    subs.Unsubscribe(topic);
-                }
-                else
-                {
-                    subs.Subscribe(input);
-                }  
-                
-            }
+            Console.WriteLine("press key to terminate...");
+            Console.ReadLine();
         }
 
         public Subscriber(string address, string broker_address)
@@ -50,12 +33,11 @@ namespace SESDADSubscriber
             remoteSubscriber.OnSubscriptionRequest = new SubsRequestDelegate(Subscribe);
             remoteSubscriber.OnUnsubscriptionRequest = new SubsRequestDelegate(Unsubscribe);
             serviceBroker = (RemoteBroker) Activator.GetObject(typeof(RemoteBroker), broker_address);
-            string[] args = address.Split(':');
-            string[] portAndName = args[2].Split('/');
-            RemotingServices.Marshal(remoteSubscriber, portAndName[1]);
+            RemotingServices.Marshal(remoteSubscriber, new Uri(address).LocalPath.Split('/')[1]);
+            brokerAddress = broker_address;
         }
 
-        public string SendStatus()
+        private string SendStatus()
         {
             string msg = "[Subscriber - " + new Uri(this.address).LocalPath.Split('/')[1] + "] Broker: " + serviceBroker.name + Environment.NewLine;
             msg += "[Subscriber - " + new Uri(this.address).LocalPath.Split('/')[1] + "]----Subscriptions----";
@@ -66,20 +48,17 @@ namespace SESDADSubscriber
             msg += "[Subscriber - " + new Uri(this.address).LocalPath.Split('/')[1] + "]----/Subscriptions----";
             return msg;
         }
-
-        public void ShowEvent(PublicationEvent e)
+        private void ShowEvent(PublicationEvent e)
         {
             Console.WriteLine("Receiving Subscription Event..." + Environment.NewLine + e.Message());
         }
-
-        public void Subscribe(string topic)
+        private void Subscribe(string topic)
         {
-            Console.WriteLine("Subscribing events on topic '" + topic + "'");
+            Console.WriteLine("Subscribing events on topic '" + topic + "' with broker at " + brokerAddress);
             SubscriptionEvent subEvent = new SubscriptionEvent(topic, address);
             serviceBroker.Subscribe(subEvent);
         }
-
-        public void Unsubscribe(string topic)
+        private void Unsubscribe(string topic)
         {
             UnsubscriptionEvent unsubEvent = new UnsubscriptionEvent(topic, address);
             serviceBroker.UnSubscribe(unsubEvent);

@@ -13,6 +13,7 @@ namespace SESDAD
     public delegate string StatusRequestDelegate();
     public delegate void SubsRequestDelegate(string topic);
     public delegate void PubSubEventDelegate(string topic, string address);
+    public delegate void PublicationEventDelegate(string topic, int numEvents, int interval);
     public delegate void ConfigurationEventDelegate(List<string> addresses);
     public delegate SESDADConfig SESDADconfigurationDelegate(string SiteName);
     public delegate SESDADProcessConfiguration SESDADProcessConfigurationDelegate();
@@ -30,7 +31,7 @@ namespace SESDAD
 
     public interface SESDADPublisherControlInterface : SESDADRemoteProcessControlInterface
     {
-        void Publish(string topic, string message);
+        void Publish(string topic, int numEvents, int interval);
     }
 
     public interface SESDADSubscriberControlInterface : SESDADRemoteProcessControlInterface
@@ -49,7 +50,7 @@ namespace SESDAD
         public PubSubEventDelegate OnUnsubscribe;
         public PubSubEventDelegate OnAdvertise;
         public StatusRequestDelegate OnStatusRequest;
-        public NotifyEventDelegate floodEvents;
+        public NotifyEventDelegate OnEventReceived;
         public Queue<PublicationEvent> floodList;
         public string name;
         public bool isFrozen = false;
@@ -60,15 +61,18 @@ namespace SESDAD
             this.slaveAddress = slaveAddress;
         }
 
-        public void Flood(PublicationEvent e)
+        public void RouteEvent(PublicationEvent e)
         {
             if (!isFrozen)
             {
-                floodEvents(e);
+                OnEventReceived(e);
             }
             else
             {
-                frozenEventsQueue.Enqueue(e);
+                lock (frozenEventsQueue)
+                {
+                    frozenEventsQueue.Enqueue(e);
+                }
             }
         }
 
@@ -85,7 +89,10 @@ namespace SESDAD
             }
             else
             {
-                frozenEventsQueue.Enqueue(e);
+                lock (frozenEventsQueue)
+                {
+                    frozenEventsQueue.Enqueue(e);
+                }
             }
         }
 
@@ -97,7 +104,10 @@ namespace SESDAD
             }
             else
             {
-                frozenEventsQueue.Enqueue(e);
+                lock (frozenEventsQueue)
+                {
+                    frozenEventsQueue.Enqueue(e);
+                }
             }
         }
 
@@ -109,23 +119,26 @@ namespace SESDAD
 
         public void Unfreeze()
         {
-            Console.WriteLine("Unfreezing, replaying collected messages...");
-            isFrozen = false;
-            while(frozenEventsQueue.Count > 0)
+            lock (frozenEventsQueue)
             {
-                EventInterface e = frozenEventsQueue.Dequeue();
-                switch (e.GetEventType())
+                isFrozen = false;
+                Console.WriteLine("Unfreezing, replaying collected messages...");
+                while (frozenEventsQueue.Count > 0)
                 {
-                    case EventType.Publication:
-                        Flood((PublicationEvent) e);
-                        break;
-                    case EventType.Subscription:
-                        Subscribe((SubscriptionEvent)e);
-                        break;
-                    case EventType.Unsubscription:
-                        UnSubscribe((UnsubscriptionEvent)e);
-                        break;
-                }  
+                    EventInterface e = frozenEventsQueue.Dequeue();
+                    switch (e.GetEventType())
+                    {
+                        case EventType.Publication:
+                            RouteEvent((PublicationEvent)e);
+                            break;
+                        case EventType.Subscription:
+                            Subscribe((SubscriptionEvent)e);
+                            break;
+                        case EventType.Unsubscription:
+                            UnSubscribe((UnsubscriptionEvent)e);
+                            break;
+                    }
+                }
             }
         }
 
@@ -195,7 +208,7 @@ namespace SESDAD
     public class RemotePublisher : MarshalByRefObject, SESDADPublisherControlInterface
     {
         public StatusRequestDelegate OnStatusRequest;
-        public PubSubEventDelegate OnPublishRequest;
+        public PublicationEventDelegate OnPublishRequest;
         private bool isFrozen = false;
 
         public string Status()
@@ -203,9 +216,9 @@ namespace SESDAD
             return OnStatusRequest();
         }
 
-        public void Publish(string topic, string message)
+        public void Publish(string topic, int numEvents, int interval)
         {
-            OnPublishRequest(topic, message);
+            OnPublishRequest(topic, numEvents, interval);
         }
 
         public void Freeze()
@@ -299,9 +312,13 @@ namespace SESDAD
         public string brokerAddress;
     }
 
+    public enum OrderMode { NoOrder, FIFO, TotalOrder};
+
     [Serializable]
     public class SESDADBrokerConfig : SESDADProcessConfiguration
-    {      
+    {
+        public OrderMode orderMode;
+        public string routingPolicy;
         public string parentBrokerAddress;
         public List<string> childrenBrokerAddresses = new List<string>();
     }
@@ -310,6 +327,8 @@ namespace SESDAD
     public class SESDADConfig
     {
         public bool isDone = false;
+        public OrderMode orderMode;
+        public string routingPolicy;
         public string siteName;
         public List<string> childrenSiteNames = new List<string>();
         public List<SESDADProcessConfig> processConfigList = new List<SESDADProcessConfig>();

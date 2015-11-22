@@ -48,7 +48,7 @@
             this.outputWindow.Multiline = true;
             this.outputWindow.Name = "outputWindow";
             this.outputWindow.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.outputWindow.Size = new System.Drawing.Size(431, 578);
+            this.outputWindow.Size = new System.Drawing.Size(786, 578);
             this.outputWindow.TabIndex = 0;
             // 
             // bajorasPrintButton
@@ -82,7 +82,7 @@
             // 
             this.single_command_group_box.Controls.Add(this.single_command_button);
             this.single_command_group_box.Controls.Add(this.single_command_box);
-            this.single_command_group_box.Location = new System.Drawing.Point(442, 14);
+            this.single_command_group_box.Location = new System.Drawing.Point(797, 12);
             this.single_command_group_box.Name = "single_command_group_box";
             this.single_command_group_box.Size = new System.Drawing.Size(298, 73);
             this.single_command_group_box.TabIndex = 4;
@@ -102,7 +102,7 @@
             // 
             this.script_group_box.Controls.Add(this.script_run_button);
             this.script_group_box.Controls.Add(this.script_text_box);
-            this.script_group_box.Location = new System.Drawing.Point(442, 104);
+            this.script_group_box.Location = new System.Drawing.Point(797, 91);
             this.script_group_box.Name = "script_group_box";
             this.script_group_box.Size = new System.Drawing.Size(298, 422);
             this.script_group_box.TabIndex = 6;
@@ -123,7 +123,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(752, 623);
+            this.ClientSize = new System.Drawing.Size(1107, 623);
             this.Controls.Add(this.script_group_box);
             this.Controls.Add(this.single_command_group_box);
             this.Controls.Add(this.bajorasPrintButton);

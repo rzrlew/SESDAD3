@@ -68,10 +68,10 @@ namespace SESDAD
             ChannelServices.RegisterChannel(channel, true);
             RemotePuppetMaster remotePM = new RemotePuppetMaster();
             remotePM.slaveSignIn += new SESDADSlaveConfigurationDelegate(RegisterSlave);
-            remotePM.configRequest += new SESDADconfigurationDelegate(searchConfigList);
+            remotePM.configRequest += new SESDADconfigurationDelegate(SearchConfigList);
             remotePM.OnLogMessage += new PuppetMasterLogEventDelegate(ShowLog);
             RemotingServices.Marshal(remotePM, "puppetmaster");
-            parseConfigFile(TestConstants.configFilePath);
+            ParseConfigFile(TestConstants.configFilePath);
             PopulateAddressHash();
         }
 
@@ -90,8 +90,7 @@ namespace SESDAD
             ShowMessage(logMessage);
             return "Message Logged!";
         }
-
-        SESDADConfig RegisterSlave(string ip_address)
+        private SESDADConfig RegisterSlave(string ip_address)
         {     
             foreach (SESDADConfig config in configList)
             {
@@ -109,7 +108,7 @@ namespace SESDAD
             }
             throw new NotImplementedException("No configuration left for slave!");
         }
-        private SESDADConfig searchConfigList(string SiteName)  // returns the Config Class of specified Site
+        private SESDADConfig SearchConfigList(string SiteName)  // returns the Config Class of specified Site
         {
             foreach(SESDADConfig c in configList)
             {
@@ -120,10 +119,10 @@ namespace SESDAD
             }
             throw new NotImplementedException();
         }
-        public void parseConfigFile(string filename)
+        private void ParseConfigFile(string filename)
         {
-            StreamReader file = openConfigFile(filename);
-            
+            StreamReader file = OpenConfigFile(filename);
+
             while (true)
             {
                 string line = file.ReadLine();
@@ -153,12 +152,12 @@ namespace SESDAD
                         {
                             case "broker":
                                 string parentName = null;
-                                SESDADConfig config = searchConfigList(args[5]); // search for Configuration Class using Site Name
+                                SESDADConfig config = SearchConfigList(args[5]); // search for Configuration Class using Site Name
                                 parentName = config.parentSiteName;
                                 config.processConfigList.Add(ProcessConf); // adds Process Config to Site Configuration Class 
                                 if (parentName != "none") // only needed if not Root Node
                                 {
-                                    SESDADConfig parentConf = searchConfigList(config.parentSiteName); // Parent Configuration Class
+                                    SESDADConfig parentConf = SearchConfigList(config.parentSiteName); // Parent Configuration Class
                                     parentConf.childBrokersAddresses.Add(args[7]); // Add process address to parent list
                                     ProcessConf.processParentAddress = parentConf.searchBroker().processAddress; // address of 'first' broker of Site
                                 }
@@ -166,17 +165,42 @@ namespace SESDAD
 
                             case "publisher":
                             case "subscriber":
-                                ProcessConf.processParentAddress = searchConfigList(args[5]).searchBroker().processAddress;
-                                searchConfigList(args[5]).processConfigList.Add(ProcessConf);
+                                ProcessConf.processParentAddress = SearchConfigList(args[5]).searchBroker().processAddress;
+                                SearchConfigList(args[5]).processConfigList.Add(ProcessConf);
                                 break;
 
                         }
                         break;
+
+                    case "Ordering":
+                        switch (args[1])
+                        {
+                            case "NO":
+                                foreach (SESDADConfig config in configList)
+                                    config.orderMode = OrderMode.NoOrder;
+                                break;
+
+                            case "FIFO":
+                                foreach (SESDADConfig config in configList)
+                                    config.orderMode = OrderMode.FIFO;
+                                break;
+
+                            case "TOTAL":
+                                foreach (SESDADConfig config in configList)
+                                    config.orderMode = OrderMode.TotalOrder;
+                                break;
+
+                        }
+                        break;
+                    case "RoutingPolicy":
+                        foreach (SESDADConfig config in configList)
+                            config.routingPolicy = args[1];
+                        break;
+
                 }
             }
-
         }
-        public void RunSingleCommand(string command)
+        private void RunSingleCommand(string command)
         {
             string[] commandTokens = command.Split(' ');
             SESDADRemoteProcessControlInterface remoteProcess;
@@ -190,16 +214,19 @@ namespace SESDAD
                         ShowMessage(remoteProcess.Status());
                     }
                     break;
+
                 case "Freeze":
                     ShowMessage("Freezing process '" + commandTokens[1] + "' !");
                     remoteProcess = (SESDADRemoteProcessControlInterface)Activator.GetObject(typeof(SESDADRemoteProcessControlInterface), processesAddressHash[commandTokens[1]]);
                     remoteProcess.Freeze();
                     break;
+
                 case "Unfreeze":
                     ShowMessage("Unfreezing process '" + commandTokens[1] + "' !");
                     remoteProcess = (SESDADRemoteProcessControlInterface)Activator.GetObject(typeof(SESDADRemoteProcessControlInterface), processesAddressHash[commandTokens[1]]);
                     remoteProcess.Unfreeze();
                     break;
+
                 case "Crash":
                     ShowMessage("Crashing process '" + commandTokens[1] + "' !");
                     remoteProcess = (SESDADRemoteProcessControlInterface)Activator.GetObject(typeof(SESDADRemoteProcessControlInterface), processesAddressHash[commandTokens[1]]);
@@ -211,34 +238,36 @@ namespace SESDAD
                         ShowMessage("Process '" + commandTokens[1] + "' has crashed!");
                     }
                     break;
+
                 case "Publisher":
                     ShowMessage("Asking publisher '" + commandTokens[1] + "' to publish on topic '" + commandTokens[5]  + "' !");
                     RemotePublisher remotePublisher = (RemotePublisher)Activator.GetObject(typeof(RemotePublisher), processesAddressHash[commandTokens[1]]);
-                    for (int i=0; i < int.Parse(commandTokens[3]); i++)
-                    {
-                        remotePublisher.Publish(commandTokens[5], i.ToString());
-                        Thread.Sleep(int.Parse(commandTokens[7]));
-                    }
+                    remotePublisher.Publish(commandTokens[5], int.Parse(commandTokens[3]), int.Parse(commandTokens[7]));
                     break;
+
                 case "Subscriber":
                     RemoteSubscriber remoteSubscriber = (RemoteSubscriber)Activator.GetObject(typeof(RemoteSubscriber), processesAddressHash[commandTokens[1]]);
                     switch (commandTokens[2])
                     {
                         case "Subscribe":
+                            ShowMessage("Asking subscriber " + commandTokens[1] + " to subscribe topic " + commandTokens[3]);
                             remoteSubscriber.Subscribe(commandTokens[3]);
                             break;
+
                         case "Unsubscribe":
+                            ShowMessage("ASking subscriber " + commandTokens[1] + " to unsubscribe topic " + commandTokens[3]);
                             remoteSubscriber.Unsubscribe(commandTokens[3]);
                             break;
                     }
-                    break;             
+                    break;
+                                 
                 case "Wait":
                     Console.WriteLine("Sleeping for " + commandTokens[1] + " milliseconds!");
                     Thread.Sleep(int.Parse(commandTokens[1]));
                     break;
+
             }
         }
-
         private void RunScript(string script)
         {
             string[] lines = script.Split(Environment.NewLine.ToCharArray());
@@ -247,12 +276,11 @@ namespace SESDAD
                 RunSingleCommand(line);
             }
         }
-
-        private StreamReader openConfigFile(string fileName)
+        private StreamReader OpenConfigFile(string fileName)
         {
             return new StreamReader(File.Open(fileName, FileMode.Open));
         }
-        void ShowMessage(string msg)    // print given string in puppet master form
+        private void ShowMessage(string msg)    // print given string in puppet master form
         {
             object[] arguments = new object[1];
             arguments[0] = "[" + DateTime.Now.Hour + ":" + DateTime.Now.Minute + ":" + DateTime.Now.Second + "] " + msg + Environment.NewLine;

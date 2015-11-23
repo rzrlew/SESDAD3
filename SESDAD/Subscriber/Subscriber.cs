@@ -10,21 +10,25 @@ namespace SESDADSubscriber
 {
     class Subscriber
     {
-        public List<string> topicList = new List<string>();
-        public RemoteBroker serviceBroker;
-        public RemoteSubscriber remoteSubscriber;
+        private List<string> topicList = new List<string>();
+        private RemoteBroker serviceBroker;
+        private RemoteSubscriber remoteSubscriber;
+        private RemotePuppetMaster remotePuppetMaster;
+        private string puppetMasterAddress;
         private string brokerAddress;
-        public string address;
+        private string name;
+        private string address;
         static void Main(string[] args)
         {
-            Subscriber subs = new Subscriber(args[0], args[1]);  // arg[0] -> susbscriber address || arg[1] -> broker address
+            Subscriber subs = new Subscriber(args[0], args[1], args[2], args[3]);  // arg[0] -> susbscriber address || arg[1] -> broker address || arg[2] -> name || arg[3] -> puppetMasterAddress
             Console.WriteLine("press key to terminate...");
             Console.ReadLine();
         }
 
-        public Subscriber(string address, string broker_address)
+        public Subscriber(string address, string broker_address, string name)
         {
             this.address = address;
+            this.name = name;
             TcpChannel channel = new TcpChannel(new Uri(address).Port);//Creates the tcp channel on the port given in the config file....
             ChannelServices.RegisterChannel(channel, true);
             remoteSubscriber = new RemoteSubscriber();
@@ -37,31 +41,54 @@ namespace SESDADSubscriber
             brokerAddress = broker_address;
         }
 
+        public Subscriber(string address, string broker_address, string name, string puppet_master_addr) : this(address, broker_address, name)
+        {
+            remotePuppetMaster = (RemotePuppetMaster)Activator.GetObject(typeof(RemotePuppetMaster), puppet_master_addr);
+            this.puppetMasterAddress = puppet_master_addr;
+        }
+
         private string SendStatus()
         {
-            string msg = "[Subscriber - " + new Uri(this.address).LocalPath.Split('/')[1] + "] Broker: " + serviceBroker.name + Environment.NewLine;
-            msg += "[Subscriber - " + new Uri(this.address).LocalPath.Split('/')[1] + "]----Subscriptions----";
+            string msg = "[Subscriber - " + name + "] Broker: " + serviceBroker.name;
+            msg += "||Topics:{";
+            bool isFirstTopic = true;
             foreach (string topic in topicList)
             {
-                msg += "[Subscriber - " + new Uri(this.address).LocalPath.Split('/')[1] + "] Topic: " + topic + Environment.NewLine;
+                if (isFirstTopic)
+                {
+                    msg += topic;
+                    isFirstTopic = false;
+                }
+                else
+                    msg += ", " + topic;
             }
-            msg += "[Subscriber - " + new Uri(this.address).LocalPath.Split('/')[1] + "]----/Subscriptions----";
+            msg += "}";
             return msg;
         }
         private void ShowEvent(PublicationEvent e)
         {
-            Console.WriteLine("Receiving Subscription Event..." + Environment.NewLine + e.Message());
+            remotePuppetMaster.LogMessage("[Subscriber - " + name + "] " + e.Message());
+            Console.WriteLine("[EVENT]" + e.Message());
         }
         private void Subscribe(string topic)
         {
-            Console.WriteLine("Subscribing events on topic '" + topic + "' with broker at " + brokerAddress);
-            SubscriptionEvent subEvent = new SubscriptionEvent(topic, address);
-            serviceBroker.Subscribe(subEvent);
+            lock (topicList)
+            {
+                Console.WriteLine("Subscribing events on topic '" + topic + "' with broker at " + brokerAddress);
+                SubscriptionEvent subEvent = new SubscriptionEvent(topic, address);
+                serviceBroker.Subscribe(subEvent);
+                if (topicList.Find(x => x.Equals(topic) ? true : false) == null)
+                    topicList.Add(topic);
+            }
         }
         private void Unsubscribe(string topic)
         {
-            UnsubscriptionEvent unsubEvent = new UnsubscriptionEvent(topic, address);
-            serviceBroker.UnSubscribe(unsubEvent);
+            lock (topicList)
+            {
+                UnsubscriptionEvent unsubEvent = new UnsubscriptionEvent(topic, address);
+                serviceBroker.UnSubscribe(unsubEvent);
+                topicList.Remove(topic);
+            }
         }
     }
 }

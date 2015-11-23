@@ -410,7 +410,7 @@ namespace SESDAD
 
         public string Message()
         {
-            return "Topic: " + topic + Environment.NewLine + "Message: " + eventMessage;
+            return "Topic: " + topic + "||Message: " + eventMessage;
         }
 
         public string GetTopic()

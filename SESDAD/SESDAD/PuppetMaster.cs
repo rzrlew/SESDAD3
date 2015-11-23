@@ -122,7 +122,8 @@ namespace SESDAD
         private void ParseConfigFile(string filename)
         {
             StreamReader file = OpenConfigFile(filename);
-
+            OrderMode order_mode = OrderMode.NoOrder;
+            string routing_policy = "flooding";
             while (true)
             {
                 string line = file.ReadLine();
@@ -144,29 +145,29 @@ namespace SESDAD
                         break;
 
                     case "Process":
-                        SESDADProcessConfig ProcessConf = new SESDADProcessConfig();
-                        ProcessConf.processName = args[1];
-                        ProcessConf.processType = args[3];
-                        ProcessConf.processAddress = args[7];
+                        SESDADProcessConfig processConf = new SESDADProcessConfig();
+                        processConf.processName = args[1];
+                        processConf.processType = args[3];
+                        processConf.processAddress = args[7];
                         switch (args[3])
                         {
                             case "broker":
                                 string parentName = null;
-                                SESDADConfig config = SearchConfigList(args[5]); // search for Configuration Class using Site Name
+                                SESDADConfig config = SearchConfigList(args[5]); // search for site Configuration using Site Name
                                 parentName = config.parentSiteName;
-                                config.processConfigList.Add(ProcessConf); // adds Process Config to Site Configuration Class 
+                                config.processConfigList.Add(processConf); // adds Process Config to Site Configuration Class 
                                 if (parentName != "none") // only needed if not Root Node
                                 {
                                     SESDADConfig parentConf = SearchConfigList(config.parentSiteName); // Parent Configuration Class
                                     parentConf.childBrokersAddresses.Add(args[7]); // Add process address to parent list
-                                    ProcessConf.processParentAddress = parentConf.searchBroker().processAddress; // address of 'first' broker of Site
+                                    processConf.processParentAddress = parentConf.searchBroker().processAddress; // address of 'first' broker of Site
                                 }
                                 break;
 
                             case "publisher":
                             case "subscriber":
-                                ProcessConf.processParentAddress = SearchConfigList(args[5]).searchBroker().processAddress;
-                                SearchConfigList(args[5]).processConfigList.Add(ProcessConf);
+                                processConf.processParentAddress = SearchConfigList(args[5]).searchBroker().processAddress;
+                                SearchConfigList(args[5]).processConfigList.Add(processConf);
                                 break;
 
                         }
@@ -176,29 +177,31 @@ namespace SESDAD
                         switch (args[1])
                         {
                             case "NO":
-                                foreach (SESDADConfig config in configList)
-                                    config.orderMode = OrderMode.NoOrder;
+                                order_mode = OrderMode.NoOrder;
                                 break;
 
                             case "FIFO":
-                                foreach (SESDADConfig config in configList)
-                                    config.orderMode = OrderMode.FIFO;
+                                order_mode = OrderMode.FIFO;
                                 break;
 
                             case "TOTAL":
-                                foreach (SESDADConfig config in configList)
-                                    config.orderMode = OrderMode.TotalOrder;
+                                order_mode = OrderMode.TotalOrder;
                                 break;
 
                         }
                         break;
                     case "RoutingPolicy":
-                        foreach (SESDADConfig config in configList)
-                            config.routingPolicy = args[1];
+                        routing_policy = args[1];
                         break;
 
                 }
             }
+            foreach (SESDADConfig config in configList)
+            {
+                config.orderMode = order_mode;
+                config.routingPolicy = routing_policy;
+            }
+
         }
         private void RunSingleCommand(string command)
         {
@@ -209,7 +212,6 @@ namespace SESDAD
                 case "Status":
                     foreach (KeyValuePair<string, string> entry in processesAddressHash)
                     {
-                        ShowMessage("----Showing status for process '" + entry.Key + "'----");
                         remoteProcess = (SESDADRemoteProcessControlInterface)Activator.GetObject(typeof(SESDADRemoteProcessControlInterface), entry.Value);
                         ShowMessage(remoteProcess.Status());
                     }

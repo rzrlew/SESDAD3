@@ -192,7 +192,8 @@ namespace SESDADBroker
                 try
                 {
                     SubscriptionInfo info = SearchSubscription(address);
-                    info.topics.Add(topic);
+                    if(info.topics.Find(x => x.Equals(topic)? true:false) == null)
+                        info.topics.Add(topic);
                 }
                 catch (NotImplementedException)
                 {
@@ -201,6 +202,7 @@ namespace SESDADBroker
                 }
             }
         }
+
         public void Unsubscription(string topic, string address)
         {
             lock (subscriptionsList)
@@ -241,10 +243,17 @@ namespace SESDADBroker
                     new Thread(() => FloodWork(e)).Start();
                     break;
                 case "filter":
-                    throw new NotImplementedException("Filtering is not implemented yet!!!!!111!!!!");
+                    new Thread(() => FilterWork(e)).Start();
+                    break;
             }
 
         }
+
+        public void FilterWork(PublicationEvent e)
+        {
+            throw new NotImplementedException();
+        }
+
         public string SendStatus()
         {
             string msg = "[Broker - " + this.name + "]";
@@ -293,6 +302,18 @@ namespace SESDADBroker
                 childBrokers.Add((RemoteBroker)Activator.GetObject(typeof(RemoteBroker), childAddress));
             }
         }
+    }
+
+    public class RoutingFilter
+    {
+        private string publisher;
+        private string topic;
+        List<string> sendAddresses;
+        public RoutingFilter()
+        {
+
+        }
+
     }
 
     public class PublisherInfo

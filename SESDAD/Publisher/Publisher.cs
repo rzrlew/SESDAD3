@@ -65,8 +65,8 @@ namespace SESDADPublisher
         }
         private string SendStatus()
         {
-            string msg = "[Publisher - " + new Uri(this.address).LocalPath.Split('/')[1] + "] Messages Sequence number: " + SequenceNumber + Environment.NewLine;
-            msg += "[Publisher - " + new Uri(this.address).LocalPath.Split('/')[1] + "] Connecte to broker at " + brokerAddress;
+            string msg = "[Publisher - " + new Uri(this.address).LocalPath.Split('/')[1] + "] SeqNum: " + SequenceNumber;
+            msg += " || Broker at:" + brokerAddress;
             return msg;
         }
         private void testFIFO()

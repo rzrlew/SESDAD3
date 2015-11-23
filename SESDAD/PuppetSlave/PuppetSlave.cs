@@ -22,6 +22,7 @@ namespace SESDAD
         SESDADConfig configuration;
         RemotePuppetMaster remotePuppetMaster;
         RemotePuppetSlave remotePuppetSlave;
+        private string puppetMasterAddress;
         public static void Main(string[] args)
         {
             if (args.Count() == 1)
@@ -43,7 +44,7 @@ namespace SESDAD
             remotePuppetSlave.OnLogMessage += new LogMessageDelegate(SendLogMessage);
             TcpChannel temp_channel = new TcpChannel();
             ChannelServices.RegisterChannel(temp_channel, true);
-
+            this.puppetMasterAddress = puppetMasterAddress;
             remotePuppetMaster = (RemotePuppetMaster)Activator.GetObject(typeof(RemotePuppetMaster), puppetMasterAddress);
             try {
                 port = remotePuppetMaster.GetNextPortNumber();
@@ -136,8 +137,8 @@ namespace SESDAD
                         break;
 
                     case "subscriber":
-                        Console.WriteLine("Starting subscriber process linked with broker at " + processConf.processParentAddress);
-                        Process.Start(TestConstants.subscriberPath, processConf.processAddress + " " + processConf.processParentAddress);
+                        Console.WriteLine("Starting subscriber '" + processConf.processName + "' process linked with broker at " + processConf.processParentAddress);
+                        Process.Start(TestConstants.subscriberPath, processConf.processAddress + " " + processConf.processParentAddress + " " + processConf.processName + " " + this.puppetMasterAddress);
                         SendLogMessage("Slave started subscriber on '" + configuration.siteName + "'!");
                         break;
 

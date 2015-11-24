@@ -72,14 +72,18 @@ namespace SESDADSubscriber
         }
         private void Subscribe(string topic)
         {
-            lock (topicList)
+            new Thread(() =>
             {
-                Console.WriteLine("Subscribing events on topic '" + topic + "' with broker at " + brokerAddress);
-                SubscriptionEvent subEvent = new SubscriptionEvent(topic, address);
-                serviceBroker.Subscribe(subEvent);
-                if (topicList.Find(x => x.Equals(topic) ? true : false) == null)
-                    topicList.Add(topic);
-            }
+                lock (topicList)
+                {
+                    Console.WriteLine("Subscribing events on topic '" + topic + "' with broker at " + brokerAddress);
+                    SubscriptionEvent subEvent = new SubscriptionEvent(topic, address);
+                    serviceBroker.Subscribe(subEvent);
+                    if (topicList.Find(x => x.Equals(topic) ? true : false) == null)
+                        topicList.Add(topic);
+                }
+            }).Start();
+            
         }
         private void Unsubscribe(string topic)
         {

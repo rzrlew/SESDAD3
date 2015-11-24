@@ -39,13 +39,13 @@ namespace SESDADPublisher
             RemotingServices.Marshal(remotePublisher, new Uri(address).LocalPath.Split('/')[1]);
         }
 
-        private void publishEvent(PublicationEvent e)
+        private void PublishEvent(PublicationEvent e)
         {
             lock(this)
             {
                 e.publisher = address;
                 e.SequenceNumber = SequenceNumber++;
-                remoteBroker.RouteEvent(e);
+                remoteBroker.PublishEvent(e);
             }
         }
 
@@ -58,7 +58,7 @@ namespace SESDADPublisher
                 {
                     Console.WriteLine("Publishing event on topic '" + topic + "'");
                     PublicationEvent e = new PublicationEvent(SequenceNumber.ToString(), topic, remoteBroker.name);
-                    publishEvent(e);
+                    PublishEvent(e);
                     Thread.Sleep(interval);
                 }
             }).Start();

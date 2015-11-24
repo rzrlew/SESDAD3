@@ -11,6 +11,7 @@ namespace SESDAD
 {
     public delegate void NotifyEventDelegate(PublicationEvent e);
     public delegate string StatusRequestDelegate();
+    public delegate void PublicationRequestDelegate(PublicationEvent e);
     public delegate void SubsRequestDelegate(string topic);
     public delegate void PubSubEventDelegate(string topic, string address);
     public delegate void PublicationEventDelegate(string topic, int numEvents, int interval);
@@ -48,8 +49,12 @@ namespace SESDAD
         private string slaveAddress;
         public PubSubEventDelegate OnSubscribe;
         public PubSubEventDelegate OnUnsubscribe;
-        public PubSubEventDelegate OnAdvertise;
+        public PubSubEventDelegate OnAdvertisePublisher;
+        public PubSubEventDelegate OnAdvertiseSubscriber;
+        public PubSubEventDelegate OnAdvertiseUnsubscriber;
+        public PubSubEventDelegate OnFilterUpdate;
         public StatusRequestDelegate OnStatusRequest;
+        public PublicationRequestDelegate OnPublication;
         public NotifyEventDelegate OnEventReceived;
         public Queue<PublicationEvent> floodList;
         public string name;
@@ -59,6 +64,11 @@ namespace SESDAD
         public RemoteBroker(string slaveAddress)
         {
             this.slaveAddress = slaveAddress;
+        }
+
+        public void PublishEvent(PublicationEvent e)
+        {
+            OnPublication(e);
         }
 
         public void RouteEvent(PublicationEvent e)
@@ -76,9 +86,39 @@ namespace SESDAD
             }
         }
 
-        public void Advertise(string topic, string address)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="topic">Topic interested</param>
+        /// <param name="address">Indicates last hop broker address. e.g. "reverse path"</param>
+        public void AdvertiseSubscriber(string topic, string address)
         {
-            OnAdvertise(topic, address);
+            OnAdvertiseSubscriber(topic, address);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="topic"></param>
+        /// <param name="address">Indicates last hop broker address. e.g. "reverse path"</param>
+        public void AdvertisePublisher(string topic, string address)
+        {
+            OnAdvertisePublisher(topic, address);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="topic"></param>
+        /// <param name="address">Indicates last hop broker address. e.g. "reverse path"</param>
+        public void AdvertiseUnsub(string topic, string address)
+        {
+            OnAdvertiseUnsubscriber(topic, address);
+        }
+
+        public void FilterUpdate(string topic, string address)
+        {
+            OnFilterUpdate(topic, address);
         }
 
         public void Subscribe(SubscriptionEvent e)

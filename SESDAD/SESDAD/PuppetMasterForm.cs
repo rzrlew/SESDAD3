@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -27,9 +28,20 @@ namespace SESDAD
             outputWindow.AppendText(message);
         }
 
-        private void bajorasPrintButton_Click(object sender, EventArgs e)
+        private void saveLogButton_Click(object sender, EventArgs e)
         {
-            OnBajorasPrint("");
+            SaveFileDialog saveFileDialog1 = new SaveFileDialog();
+            saveFileDialog1.Filter = "Text Document|*.txt";
+            saveFileDialog1.Title = "Save the PuppetMaster log messages";
+            saveFileDialog1.ShowDialog();
+            // If the file name is not an empty string open it for saving.
+            if (saveFileDialog1.FileName != "")
+            {
+                StreamWriter fs = new StreamWriter(saveFileDialog1.OpenFile());
+                string logText = outputWindow.Text;
+                fs.WriteLine(logText);
+                fs.Close();
+            }
         }
 
         private void single_command_button_Click(object sender, EventArgs e)
@@ -40,6 +52,16 @@ namespace SESDAD
         private void script_run_button_Click(object sender, EventArgs e)
         {
             new Thread(() => OnScriptCommands(script_text_box.Text)).Start();
+        }
+
+        private void groupBox1_Enter(object sender, EventArgs e)
+        {
+
+        }
+
+        private void saveFileDialog1_FileOk(object sender, CancelEventArgs e)
+        {
+
         }
     }
 }

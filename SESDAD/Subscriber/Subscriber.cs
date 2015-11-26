@@ -76,23 +76,31 @@ namespace SESDADSubscriber
             {
                 lock (topicList)
                 {
-                    Console.WriteLine("Subscribing events on topic '" + topic + "' with broker at " + brokerAddress);
-                    SubscriptionEvent subEvent = new SubscriptionEvent(topic, address);
-                    serviceBroker.Subscribe(subEvent);
                     if (topicList.Find(x => x.Equals(topic) ? true : false) == null)
+                    {
                         topicList.Add(topic);
+                        Console.WriteLine("Subscribing events on topic '" + topic + "' with broker at " + brokerAddress);
+                        SubscriptionEvent subEvent = new SubscriptionEvent(topic, address);
+                        serviceBroker.Subscribe(subEvent);
+                    } 
                 }
             }).Start();
             
         }
         private void Unsubscribe(string topic)
         {
-            lock (topicList)
+            new Thread(() =>
             {
-                UnsubscriptionEvent unsubEvent = new UnsubscriptionEvent(topic, address);
-                serviceBroker.UnSubscribe(unsubEvent);
-                topicList.Remove(topic);
-            }
+                lock (topicList)
+                {
+                    if (topicList.Find(x => x.Equals(topic) ? true : false) != null)
+                    {
+                        UnsubscriptionEvent unsubEvent = new UnsubscriptionEvent(topic, address);
+                        serviceBroker.UnSubscribe(unsubEvent);
+                        topicList.Remove(topic);
+                    }
+                }
+            }).Start();
         }
     }
 }

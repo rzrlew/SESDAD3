@@ -44,7 +44,7 @@ namespace SESDADPublisher
             lock(this)
             {
                 e.publisher = address;
-                e.SequenceNumber = SequenceNumber++;
+                e.SequenceNumber = ++SequenceNumber;
                 remoteBroker.PublishEvent(e);
             }
         }
@@ -57,7 +57,7 @@ namespace SESDADPublisher
                 for (int i = 0; i < numEvents; i++)
                 {
                     Console.WriteLine("Publishing event on topic '" + topic + "'");
-                    PublicationEvent e = new PublicationEvent(SequenceNumber.ToString(), topic, remoteBroker.name);
+                    PublicationEvent e = new PublicationEvent(SequenceNumber.ToString(), topic, address);
                     PublishEvent(e);
                     Thread.Sleep(interval);
                 }
@@ -76,7 +76,7 @@ namespace SESDADPublisher
                 PublicationEvent e = new PublicationEvent(i.ToString(), "test", remoteBroker.name);
                 e.SequenceNumber = i;
                 e.publisher = address;
-                remoteBroker.RouteEvent(e);
+                remoteBroker.PublishEvent(e);
             }
         }
 

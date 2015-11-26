@@ -91,19 +91,22 @@ namespace SESDAD
             return "Message Logged!";
         }
         private SESDADConfig RegisterSlave(string ip_address)
-        {     
-            foreach (SESDADConfig config in configList)
+        {
+            lock (configList)
             {
-                string configHost = new Uri(config.processConfigList.FirstOrDefault().processAddress).Host;
-                if (configHost.Equals("localhost"))
+                foreach (SESDADConfig config in configList)
                 {
-                    configHost = "127.0.0.1";
-                }
-                if (!config.isDone && configHost.Equals(ip_address))
-                {
-                    config.isDone = true;
-                    ShowMessage("Slave for '" + config.siteName + "' is registered!");
-                    return config;
+                    string configHost = new Uri(config.processConfigList.FirstOrDefault().processAddress).Host;
+                    if (configHost.Equals("localhost"))
+                    {
+                        configHost = "127.0.0.1";
+                    }
+                    if (!config.isDone && configHost.Equals(ip_address))
+                    {
+                        config.isDone = true;
+                        ShowMessage("Slave for '" + config.siteName + "' is registered!");
+                        return config;
+                    }
                 }
             }
             throw new NotImplementedException("No configuration left for slave!");
@@ -201,7 +204,7 @@ namespace SESDAD
                 config.orderMode = order_mode;
                 config.routingPolicy = routing_policy;
             }
-
+            file.Close();
         }
         private void RunSingleCommand(string command)
         {

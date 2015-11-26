@@ -1,14 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Threading;
 using System.Diagnostics;
 using System.Runtime.Remoting;
 using System.Runtime.Remoting.Channels;
 using System.Runtime.Remoting.Channels.Tcp;
-using System.Collections;
-using System.Runtime.Remoting.Messaging;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -72,7 +68,7 @@ namespace SESDAD
         }
         public void SendLogMessage(string message)
         {
-            remotePuppetMaster.LogMessage(message);
+            new Thread(() =>{remotePuppetMaster.LogMessage(message);}).Start();
         }
         public SESDADProcessConfiguration GetConfiguration()
         {

@@ -14,6 +14,8 @@ namespace SESDAD
     public delegate void PublicationRequestDelegate(PublicationEvent e);
     public delegate void SubsRequestDelegate(string topic);
     public delegate void PubSubEventDelegate(string topic, string address);
+    public delegate void SubscriptionAdvertisementDelegate(string topic, string lastHopAddress, string subscriberAddress);
+    public delegate void PubAdvertisementEventDelegate(string topic, string lastHopAddress, string publisherAddress, int seqNum);
     public delegate void PublicationEventDelegate(string topic, int numEvents, int interval);
     public delegate void ConfigurationEventDelegate(List<string> addresses);
     public delegate SESDADConfig SESDADconfigurationDelegate(string SiteName);
@@ -49,10 +51,11 @@ namespace SESDAD
         private string slaveAddress;
         public PubSubEventDelegate OnSubscribe;
         public PubSubEventDelegate OnUnsubscribe;
-        public PubSubEventDelegate OnAdvertisePublisher;
-        public PubSubEventDelegate OnAdvertiseSubscriber;
-        public PubSubEventDelegate OnAdvertiseUnsubscriber;
+        public PubAdvertisementEventDelegate OnAdvertisePublisher;
+        public SubscriptionAdvertisementDelegate OnAdvertiseSubscriber;
+        public SubscriptionAdvertisementDelegate OnAdvertiseUnsubscriber;
         public PubSubEventDelegate OnFilterUpdate;
+        public PubAdvertisementEventDelegate OnSequenceUpdate;
         public StatusRequestDelegate OnStatusRequest;
         public PublicationRequestDelegate OnPublication;
         public NotifyEventDelegate OnEventReceived;
@@ -68,95 +71,87 @@ namespace SESDAD
 
         public void PublishEvent(PublicationEvent e)
         {
-            OnPublication(e);
+            lock (frozenEventsQueue)
+            {
+                if (!isFrozen)
+                {
+                    e.isFirstHop = false;
+                    OnPublication(e);
+                }
+                else
+                    frozenEventsQueue.Enqueue(e);
+            }
         }
-
         public void RouteEvent(PublicationEvent e)
         {
-            if (!isFrozen)
+            lock (frozenEventsQueue)
             {
-                OnEventReceived(e);
-            }
-            else
-            {
-                lock (frozenEventsQueue)
-                {
+                if (!isFrozen)
+                    OnEventReceived(e);
+                else
                     frozenEventsQueue.Enqueue(e);
-                }
             }
         }
-
         /// <summary>
         /// 
         /// </summary>
         /// <param name="topic">Topic interested</param>
         /// <param name="address">Indicates last hop broker address. e.g. "reverse path"</param>
-        public void AdvertiseSubscriber(string topic, string address)
+        public void AdvertiseSubscriber(string topic, string lastHopAddress, string subAddress)
         {
-            OnAdvertiseSubscriber(topic, address);
+            OnAdvertiseSubscriber(topic, lastHopAddress, subAddress);
         }
-
         /// <summary>
         /// 
         /// </summary>
         /// <param name="topic"></param>
-        /// <param name="address">Indicates last hop broker address. e.g. "reverse path"</param>
-        public void AdvertisePublisher(string topic, string address)
+        /// <param name="lastHopAddress">Indicates last hop broker address. e.g. "reverse path"</param>
+        public void AdvertisePublisher(string topic, string lastHopAddress, string publisherAddress, int seqNumber)
         {
-            OnAdvertisePublisher(topic, address);
+            OnAdvertisePublisher(topic, lastHopAddress, publisherAddress, seqNumber);
         }
-
         /// <summary>
         /// 
         /// </summary>
         /// <param name="topic"></param>
-        /// <param name="address">Indicates last hop broker address. e.g. "reverse path"</param>
-        public void AdvertiseUnsub(string topic, string address)
+        /// <param name="lastHopAddress">Indicates last hop broker address. e.g. "reverse path"</param>
+        public void AdvertiseUnsub(string topic, string lastHopAddress, string subscriberAddress)
         {
-            OnAdvertiseUnsubscriber(topic, address);
+            OnAdvertiseUnsubscriber(topic, lastHopAddress, subscriberAddress);
         }
-
-        public void FilterUpdate(string topic, string address)
+        public void FilterUpdate(string topic, string lastHopAddress)
         {
-            OnFilterUpdate(topic, address);
+            OnFilterUpdate(topic, lastHopAddress);
         }
-
+        public void SequenceUpdate(string topic, string lastHopAddress, string publisherAddress, int seqNum)
+        {
+            OnSequenceUpdate(topic, lastHopAddress, publisherAddress, seqNum);
+        }
         public void Subscribe(SubscriptionEvent e)
         {
-            if (!isFrozen)
+            lock (frozenEventsQueue)
             {
-                OnSubscribe(e.subUnsubTopic, e.subUnsubAddress);
-            }
-            else
-            {
-                lock (frozenEventsQueue)
-                {
+                if (!isFrozen)
+                    OnSubscribe(e.subUnsubTopic, e.subUnsubAddress);
+                else
                     frozenEventsQueue.Enqueue(e);
-                }
             }
         }
-
         public void UnSubscribe(UnsubscriptionEvent e)
         {
-            if (!isFrozen)
+            lock (frozenEventsQueue)
             {
-                OnUnsubscribe(e.subUnsubTopic, e.subUnsubAddress);
-            }
-            else
-            {
-                lock (frozenEventsQueue)
-                {
+                if (!isFrozen)
+                    OnUnsubscribe(e.subUnsubTopic, e.subUnsubAddress);
+                else
                     frozenEventsQueue.Enqueue(e);
-                }
             }
         }
-
         public void Freeze()
         {
             Console.WriteLine("Freezing... Collecting messages...");
             isFrozen = true;
         }
-
         public void Unfreeze()
         {
             lock (frozenEventsQueue)
@@ -169,7 +164,14 @@ namespace SESDAD
                     switch (e.GetEventType())
                     {
                         case EventType.Publication:
-                            RouteEvent((PublicationEvent)e);
+                            if (((PublicationEvent)e).isFirstHop)
+                            {
+                                PublishEvent((PublicationEvent)e);
+                            }
+                            else
+                            {
+                                RouteEvent((PublicationEvent)e);
+                            }
                             break;
                         case EventType.Subscription:
                             Subscribe((SubscriptionEvent)e);
@@ -181,15 +183,17 @@ namespace SESDAD
                 }
             }
         }
-
         public string Status()
         {
             return OnStatusRequest() + "[Broker] Frozen: " + isFrozen.ToString();
         }
-
         public void Crash()
         {
             Process.GetCurrentProcess().Kill();
+        }
+        public override object InitializeLifetimeService()
+        {
+            return null;
         }
     }
 
@@ -209,6 +213,11 @@ namespace SESDAD
         public void SendLog(string message)
         {
             OnLogMessage(message);
+        }
+
+        public override object InitializeLifetimeService()
+        {
+            return null;
         }
     }
 
@@ -243,6 +252,11 @@ namespace SESDAD
         {
             OnLogMessage(message);
         }
+
+        public override object InitializeLifetimeService()
+        {
+            return null;
+        }
     }
 
     public class RemotePublisher : MarshalByRefObject, SESDADPublisherControlInterface
@@ -276,6 +290,11 @@ namespace SESDAD
         public void Crash()
         {
             Process.GetCurrentProcess().Kill();
+        }
+
+        public override object InitializeLifetimeService()
+        {
+            return null;
         }
     }
 
@@ -321,6 +340,11 @@ namespace SESDAD
         public void Crash()
         {
             Process.GetCurrentProcess().Kill();
+        }
+
+        public override object InitializeLifetimeService()
+        {
+            return null;
         }
     }
 
@@ -434,6 +458,7 @@ namespace SESDAD
         public string publisher;
         public int SequenceNumber;
         public string lastHop;
+        public bool isFirstHop = true;
 
         /// <summary>
         /// Use this contructor to create a "Publication" Event.

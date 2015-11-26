@@ -29,37 +29,39 @@
         private void InitializeComponent()
         {
             this.outputWindow = new System.Windows.Forms.TextBox();
-            this.bajorasPrintButton = new System.Windows.Forms.Button();
+            this.saveLogButton = new System.Windows.Forms.Button();
             this.single_command_box = new System.Windows.Forms.TextBox();
             this.single_command_button = new System.Windows.Forms.Button();
             this.single_command_group_box = new System.Windows.Forms.GroupBox();
             this.script_text_box = new System.Windows.Forms.TextBox();
             this.script_group_box = new System.Windows.Forms.GroupBox();
             this.script_run_button = new System.Windows.Forms.Button();
+            this.logGroupBox = new System.Windows.Forms.GroupBox();
             this.single_command_group_box.SuspendLayout();
             this.script_group_box.SuspendLayout();
+            this.logGroupBox.SuspendLayout();
             this.SuspendLayout();
             // 
             // outputWindow
             // 
             this.outputWindow.BackColor = System.Drawing.SystemColors.MenuText;
             this.outputWindow.ForeColor = System.Drawing.Color.LawnGreen;
-            this.outputWindow.Location = new System.Drawing.Point(5, 12);
+            this.outputWindow.Location = new System.Drawing.Point(6, 19);
             this.outputWindow.Multiline = true;
             this.outputWindow.Name = "outputWindow";
             this.outputWindow.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.outputWindow.Size = new System.Drawing.Size(786, 578);
+            this.outputWindow.Size = new System.Drawing.Size(757, 559);
             this.outputWindow.TabIndex = 0;
             // 
-            // bajorasPrintButton
+            // saveLogButton
             // 
-            this.bajorasPrintButton.Location = new System.Drawing.Point(5, 596);
-            this.bajorasPrintButton.Name = "bajorasPrintButton";
-            this.bajorasPrintButton.Size = new System.Drawing.Size(60, 22);
-            this.bajorasPrintButton.TabIndex = 1;
-            this.bajorasPrintButton.Text = "Print Log";
-            this.bajorasPrintButton.UseVisualStyleBackColor = true;
-            this.bajorasPrintButton.Click += new System.EventHandler(this.bajorasPrintButton_Click);
+            this.saveLogButton.Location = new System.Drawing.Point(6, 580);
+            this.saveLogButton.Name = "saveLogButton";
+            this.saveLogButton.Size = new System.Drawing.Size(75, 22);
+            this.saveLogButton.TabIndex = 1;
+            this.saveLogButton.Text = "Save Log";
+            this.saveLogButton.UseVisualStyleBackColor = true;
+            this.saveLogButton.Click += new System.EventHandler(this.saveLogButton_Click);
             // 
             // single_command_box
             // 
@@ -119,6 +121,18 @@
             this.script_run_button.UseVisualStyleBackColor = true;
             this.script_run_button.Click += new System.EventHandler(this.script_run_button_Click);
             // 
+            // logGroupBox
+            // 
+            this.logGroupBox.Controls.Add(this.saveLogButton);
+            this.logGroupBox.Controls.Add(this.outputWindow);
+            this.logGroupBox.Location = new System.Drawing.Point(6, 9);
+            this.logGroupBox.Name = "logGroupBox";
+            this.logGroupBox.Size = new System.Drawing.Size(769, 608);
+            this.logGroupBox.TabIndex = 7;
+            this.logGroupBox.TabStop = false;
+            this.logGroupBox.Text = "Log";
+            this.logGroupBox.Enter += new System.EventHandler(this.groupBox1_Enter);
+            // 
             // PuppetMasterForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -126,28 +140,29 @@
             this.ClientSize = new System.Drawing.Size(1107, 623);
             this.Controls.Add(this.script_group_box);
             this.Controls.Add(this.single_command_group_box);
-            this.Controls.Add(this.bajorasPrintButton);
-            this.Controls.Add(this.outputWindow);
+            this.Controls.Add(this.logGroupBox);
             this.Name = "PuppetMasterForm";
             this.Text = "PuppetMasterForm";
             this.single_command_group_box.ResumeLayout(false);
             this.single_command_group_box.PerformLayout();
             this.script_group_box.ResumeLayout(false);
             this.script_group_box.PerformLayout();
+            this.logGroupBox.ResumeLayout(false);
+            this.logGroupBox.PerformLayout();
             this.ResumeLayout(false);
-            this.PerformLayout();
 
         }
 
         #endregion
 
         private System.Windows.Forms.TextBox outputWindow;
-        private System.Windows.Forms.Button bajorasPrintButton;
+        private System.Windows.Forms.Button saveLogButton;
         private System.Windows.Forms.TextBox single_command_box;
         private System.Windows.Forms.Button single_command_button;
         private System.Windows.Forms.GroupBox single_command_group_box;
         private System.Windows.Forms.TextBox script_text_box;
         private System.Windows.Forms.GroupBox script_group_box;
         private System.Windows.Forms.Button script_run_button;
+        private System.Windows.Forms.GroupBox logGroupBox;
     }
 }

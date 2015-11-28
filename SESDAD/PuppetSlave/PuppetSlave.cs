@@ -81,6 +81,7 @@ namespace SESDAD
                         SESDADBrokerConfig brokerConf = new SESDADBrokerConfig();
                         brokerConf.orderMode = configuration.orderMode;
                         brokerConf.routingPolicy = configuration.routingPolicy;
+                        brokerConf.loggingLevel = configuration.loggingLevel;
                         brokerConf.parentBrokerAddress = config.processParentAddress;
                         brokerConf.processAddress = config.processAddress;
                         brokerConf.processName = config.processName;

@@ -76,12 +76,14 @@ namespace SESDADSubscriber
             {
                 lock (topicList)
                 {
+                    //If topic is NOT susbscribed
                     if (topicList.Find(x => x.Equals(topic) ? true : false) == null)
                     {
                         topicList.Add(topic);
                         Console.WriteLine("Subscribing events on topic '" + topic + "' with broker at " + brokerAddress);
                         SubscriptionEvent subEvent = new SubscriptionEvent(topic, address);
                         serviceBroker.Subscribe(subEvent);
+                        remotePuppetMaster.LogMessage("[" + name + "] Broker confirmed subscription of topic '" + topic + "'");
                     } 
                 }
             }).Start();
@@ -93,11 +95,13 @@ namespace SESDADSubscriber
             {
                 lock (topicList)
                 {
+                    //If topic is subscribed!
                     if (topicList.Find(x => x.Equals(topic) ? true : false) != null)
                     {
                         UnsubscriptionEvent unsubEvent = new UnsubscriptionEvent(topic, address);
                         serviceBroker.UnSubscribe(unsubEvent);
                         topicList.Remove(topic);
+                        remotePuppetMaster.LogMessage("[" + name + "] Broker confirmed unsubscription of topic '" + topic + "'");
                     }
                 }
             }).Start();

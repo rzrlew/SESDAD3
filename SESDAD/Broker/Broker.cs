@@ -16,11 +16,17 @@ namespace SESDADBroker
         SESDADBrokerConfig configuration;
         TcpChannel channel;
         RemotePuppetSlave remoteSlave;
-        RemoteBroker remoteBroker;
+        RemoteBroker filterBroker;
         RemoteBroker parentBroker = null;
         List<RemoteBroker> childBrokers = new List<RemoteBroker>();
         List<SubscriptionInfo> subscriptionsList = new List<SubscriptionInfo>();// stores information regarding subscriptions[subscriber][topic]  
         List<PublisherInfo> publicationList = new List<PublisherInfo>();
+
+        /// <summary>
+        /// Does not contain updated topics or sequence number!!!!
+        /// </summary>
+        List<PublisherInfo> localPublisherFIFO = new List<PublisherInfo>();
+
         List<PublicationEvent> FIFOWaitQueue = new List<PublicationEvent>();
         List<NeighborForwardingFilter> neighborFilters = new List<NeighborForwardingFilter>();
         AutoResetEvent[] lockAdvertiseHandles = new AutoResetEvent[1];
@@ -29,7 +35,7 @@ namespace SESDADBroker
             set
             {
                 name = value;
-                remoteBroker.name = name;
+                filterBroker.name = name;
             }
         }
         public TcpChannel Channel
@@ -64,18 +70,18 @@ namespace SESDADBroker
             Console.WriteLine("---Starting Broker---");
             Console.WriteLine("Creating remote broker on " + config.processAddress);
             configuration = config;
-            remoteBroker = new RemoteBroker(slaveAddress);
+            filterBroker = new RemoteBroker(slaveAddress);
             lockAdvertiseHandles[0] = new AutoResetEvent(true);
-            remoteBroker.OnEventReceived = new NotifyEventDelegate(EventRouting);           
-            remoteBroker.OnSubscribe += new PubSubEventDelegate(Subscription);
-            remoteBroker.OnUnsubscribe += new PubSubEventDelegate(Unsubscription);
-            remoteBroker.OnStatusRequest = new StatusRequestDelegate(SendStatus);
-            remoteBroker.OnAdvertisePublisher = new PubAdvertisementEventDelegate(HandlePubAdvertisement);
-            remoteBroker.OnAdvertiseSubscriber = new SubscriptionAdvertisementDelegate(HandleSubAdvertisement);
-            remoteBroker.OnPublication = new PublicationRequestDelegate(HandlePublisherPublication);
-            remoteBroker.OnAdvertiseUnsubscriber = new SubscriptionAdvertisementDelegate(HandleUnsubAdvertisement);
-            remoteBroker.OnFilterUpdate = new PubSubEventDelegate(HandleFilterUpdate);
-            remoteBroker.OnSequenceUpdate = new PubAdvertisementEventDelegate(HandleSeqUpdate);
+            filterBroker.OnEventReceived = new NotifyEventDelegate(EventRouting);           
+            filterBroker.OnSubscribe += new PubSubEventDelegate(Subscription);
+            filterBroker.OnUnsubscribe += new PubSubEventDelegate(Unsubscription);
+            filterBroker.OnStatusRequest = new StatusRequestDelegate(SendStatus);
+            filterBroker.OnAdvertisePublisher = new PubAdvertisementEventDelegate(HandlePubAdvertisement);
+            filterBroker.OnAdvertiseSubscriber = new SubscriptionAdvertisementDelegate(HandleSubAdvertisement);
+            filterBroker.OnPublication = new PublicationRequestDelegate(HandlePublisherPublication);
+            filterBroker.OnAdvertiseUnsubscriber = new SubscriptionAdvertisementDelegate(HandleUnsubAdvertisement);
+            filterBroker.OnFilterUpdate = new PubSubEventDelegate(HandleFilterUpdate);
+            filterBroker.OnSequenceUpdate = new PubAdvertisementEventDelegate(HandleSeqUpdate);
             Name = config.processName;
             if (config.parentBrokerAddress != null)
             {
@@ -88,7 +94,7 @@ namespace SESDADBroker
                 SetChildren(config.childrenBrokerAddresses);
             }
             PopulateFilters();
-            RemotingServices.Marshal(remoteBroker, new Uri(configuration.processAddress).LocalPath.Split('/')[1]);
+            RemotingServices.Marshal(filterBroker, new Uri(configuration.processAddress).LocalPath.Split('/')[1]);
             Console.WriteLine("Broker is listening...");
         }
 
@@ -108,7 +114,9 @@ namespace SESDADBroker
             {
                 FIFOWaitQueue.Add(e);
             }
-            new Thread(() => SendEventLogWork(e)).Start();
+            if (configuration.loggingLevel != null && configuration.loggingLevel.Equals("full")){
+                new Thread(() => SendEventLogWork(e)).Start();
+            }
             switch (configuration.orderMode)
             {
                 case OrderMode.NoOrder:
@@ -149,75 +157,80 @@ namespace SESDADBroker
 
             if (configuration.routingPolicy == "filter")
             {
-                lock (neighborFilters)
-                {
                     foreach (NeighborForwardingFilter filter in neighborFilters)
                     {
+                        //If there are publishers for this topic and link is NOT to parent
                         if (filter.GetAllPublishersTopic(topic).Any() && !filter.neighborAddress.Equals(configuration.parentBrokerAddress))
                         {
+                            //Send Filter Update in Publishers direction!
                             RemoteBroker remoteBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), filter.neighborAddress);
                             remoteBroker.FilterUpdate(topic, configuration.processAddress);
                         }
                     }
 
+                    //Send Subscription advertisement to parent!
                     if (parentBroker != null)
                     {
                         parentBroker.AdvertiseSubscriber(topic, configuration.processAddress, address);
                     }
-                }
             }
         }
         private void Unsubscription(string topic, string address)
         {
-                lock (subscriptionsList)
+            lock (subscriptionsList)
+            {
+                SubscriptionInfo info = SearchSubscription(address);
+                info.interestedTopics.Remove(topic);
+                if (configuration.routingPolicy.Equals("filter"))
                 {
-                    SubscriptionInfo info = SearchSubscription(address);
-                    info.interestedTopics.Remove(topic);
-                    if (configuration.routingPolicy.Equals("filter"))
+                    foreach (SubscriptionInfo subInfo in subscriptionsList)
                     {
-                        foreach (SubscriptionInfo subInfo in subscriptionsList)
+                        foreach (string t in subInfo.interestedTopics)
                         {
-                            foreach (string t in subInfo.interestedTopics)
+                            //Checks if other subs have interest
+                            if (t.Equals(topic) && !subInfo.subscription_address.Equals(address))
                             {
-                                if (t.Equals(topic) && !subInfo.subscription_address.Equals(address))//Checks if other subs have interest
-                                {
-                                    Console.WriteLine("Not propagating unsub found matching local subscriber!");
-                                    return;
-                                }
+                                Console.WriteLine("Not propagating unsub found matching local subscriber!");
+                                return;
                             }
-                        }
-                        lock (neighborFilters)
-                        {
-                            foreach (NeighborForwardingFilter filter in neighborFilters)
-                            {
-                                if (filter.MatchTopic(topic))
-                                {
-                                    Console.WriteLine("Not propagating unsub found matching filter interest!");
-                                    return;
-                                }
-                            }
-                        }
-                        bool sendToparent = true;
-                        foreach (NeighborForwardingFilter filter in neighborFilters)
-                        {
-                            foreach (PublisherInfo pubInfo in filter.GetAllPublishersTopic(topic)) // Chekcs if publisher for topic is through this link
-                            {
-                                if (!filter.neighborAddress.Equals(address))
-                                {
-                                    sendToparent = true;
-                                    RemoteBroker remBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), filter.neighborAddress);
-                                    Console.WriteLine("Propagating Unsub to " + filter.neighborAddress + " || local address:" + configuration.processAddress);
-                                    remoteBroker.AdvertiseUnsub(topic, configuration.processAddress, address);
-                                    break;
-                                }
-                            }
-                        }
-                        if (sendToparent && parentBroker != null)
-                        {
-                            parentBroker.AdvertiseUnsub(topic, configuration.processAddress, address);
                         }
                     }
+                    lock (neighborFilters)
+                    {
+                        foreach (NeighborForwardingFilter filter in neighborFilters)
+                        {
+                            if (filter.MatchTopic(topic))
+                            {
+                                Console.WriteLine("Not propagating unsub found matching filter interest!");
+                                return;
+                            }
+                        }
+                    }
+                    bool sendToparent = true;
+                    foreach (NeighborForwardingFilter filter in neighborFilters)
+                    {
+                        // Chekcs if publisher for topic is through this link
+                        foreach (PublisherInfo pubInfo in filter.GetAllPublishersTopic(topic)) 
+                        {
+                            if (!filter.neighborAddress.Equals(address))
+                            {
+                                if (filter.neighborAddress.Equals(configuration.parentBrokerAddress))
+                                {
+                                    sendToparent = false;
+                                }
+                                RemoteBroker filterBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), filter.neighborAddress);
+                                Console.WriteLine("Propagating Unsub to " + filter.neighborAddress + " || local address:" + configuration.processAddress);
+                                filterBroker.AdvertiseUnsub(topic, configuration.processAddress, address);
+                                break;
+                            }
+                        }
+                    }
+                    if (sendToparent && parentBroker != null)
+                    {
+                        parentBroker.AdvertiseUnsub(topic, configuration.processAddress, address);
+                    }
                 }
+            }
         }
         private void UpdateLocalPublisher(string publisherAddress, string topic, int seqNum)
         {
@@ -347,6 +360,7 @@ namespace SESDADBroker
                             {
                                 RemoteSubscriber subscriber = (RemoteSubscriber)Activator.GetObject(typeof(RemoteSubscriber), info.subscription_address);
                                 subscriber.NotifySubscriptionEvent(e);
+                                //Console.WriteLine("Sent message:" + e.Message() + " || to susbcriber at:" + info.subscription_address);
                                 lock (FIFOWaitQueue)
                                 {
                                     FIFOWaitQueue.Remove(e);
@@ -364,17 +378,20 @@ namespace SESDADBroker
                 PublisherInfo info = SearchLocalPublication(publicationAddress);
                 lock (FIFOWaitQueue)
                 {
-                    foreach (PublicationEvent e in FIFOWaitQueue)
+                    lock (neighborFilters)
                     {
-                        lock (info)
+                        foreach (PublicationEvent e in FIFOWaitQueue)
                         {
-                            if (info.LastSeqNumber + 1 == e.SequenceNumber && info.publication_address.Equals(e.publisher))
+                            lock (info)
                             {
-                                SendToSubscriberWork(e);
-                                FIFOWaitQueue.Remove(e);
-                                info.LastSeqNumber = e.SequenceNumber;
-                                FIFOSubscriberWork(publicationAddress);
-                                break;
+                                if (info.LastSeqNumber + 1 == e.SequenceNumber && info.publication_address.Equals(e.publisher))
+                                {
+                                    SendToSubscriberWork(e);
+                                    FIFOWaitQueue.Remove(e);
+                                    info.LastSeqNumber = e.SequenceNumber;
+                                    FIFOSubscriberWork(publicationAddress);
+                                    break;
+                                }
                             }
                         }
                     }
@@ -406,6 +423,7 @@ namespace SESDADBroker
             {
                 string lastHopAddress = e.lastHop;
                 e.lastHop = configuration.processAddress;
+                PublisherInfo messagePublisher = SearchLocalPublication(e.publisher);
                 foreach (NeighborForwardingFilter filter in neighborFilters)
                 {
                     if (filter.MatchTopic(e.topic) && !filter.neighborAddress.Equals(lastHopAddress))
@@ -415,9 +433,14 @@ namespace SESDADBroker
                     }
                     else if (!filter.neighborAddress.Equals(lastHopAddress))
                     {
-
-                        RemoteBroker remoteBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), filter.neighborAddress);
-                        remoteBroker.SequenceUpdate(e.topic, configuration.processAddress, e.publisher, e.SequenceNumber);
+                        foreach (string publisherTopic in messagePublisher.topics)
+                            if (filter.MatchTopic(publisherTopic) && !publisherTopic.Equals(e.topic))
+                            {
+                               // Console.WriteLine("Filter Work sending sequence update! Found topic " + publisherTopic + " that needs seq number! Sending to " + filter.neighborAddress);
+                                RemoteBroker filterBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), filter.neighborAddress);
+                                filterBroker.SequenceUpdate(publisherTopic, configuration.processAddress, e.publisher, e.SequenceNumber);
+                                break;
+                            }
                     }
                 }
             }
@@ -432,66 +455,124 @@ namespace SESDADBroker
 
         private void HandleFilterUpdate(string topic, string lastHopAddress)
         {
-            Console.WriteLine("Received FilterUpdate message from " + lastHopAddress);
-            SearchFilters(lastHopAddress).AddInterestTopic(topic)/*, subscriberAddress)*/;
-            foreach (NeighborForwardingFilter filter in neighborFilters)
+            lock (neighborFilters)
             {
-                foreach (PublisherInfo info in filter.publishers)
+                Console.WriteLine("Received FilterUpdate message from " + lastHopAddress);
+                SearchFilters(lastHopAddress).AddInterestTopic(topic)/*, subscriberAddress)*/;
+                //localPublisherFIFO contains all directly connected publihsers. Reverse Send SequenceUpdate for all that publish topic.
+                foreach (PublisherInfo localPubInfo in localPublisherFIFO)
                 {
-                    foreach (string t in info.topics)
+                    //If topic is found on locally connected publisher! (localPubInfo does not contain updated topics!
+                    if (publicationList.Find(x => x.publication_address.Equals(localPubInfo.publication_address)).topics.Find(x => x.Equals(topic)) != null)
                     {
-                        if (t.Equals(topic) && !filter.neighborAddress.Equals(lastHopAddress))
+                        Console.WriteLine("Found localy connected publisher sending seqUdpate message to " + lastHopAddress);
+                        RemoteBroker lastHopBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), lastHopAddress);
+                        lastHopBroker.SequenceUpdate(topic, configuration.processAddress, localPubInfo.publication_address, /* localPubInfo does not contain updated seqNum, find it in publication list */
+                                                        publicationList.Find(x => x.publication_address.Equals(localPubInfo.publication_address)).LastSeqNumber);
+                    }
+                }
+
+                //Send filter update in the direction of all publishers for topic except last hop and parent!
+                foreach (NeighborForwardingFilter filter in neighborFilters)
+                {
+                    bool sendFilterUpdate = false;
+                    foreach (PublisherInfo info in filter.publishers)
+                    {
+                        foreach (string t in info.topics)
                         {
-                            RemoteBroker remoteBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), filter.neighborAddress);
-                            remoteBroker.FilterUpdate(topic, configuration.processAddress);
+                            if (t.Equals(topic) && !filter.neighborAddress.Equals(lastHopAddress) && !filter.neighborAddress.Equals(configuration.parentBrokerAddress))
+                            {
+                                sendFilterUpdate = true;
+                            }
                         }
+                    }
+                    if (sendFilterUpdate)
+                    {
+                        Console.WriteLine("Sending filter update message to " + filter.neighborAddress);
+                        RemoteBroker filterBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), filter.neighborAddress);
+                        filterBroker.FilterUpdate(topic, configuration.processAddress);
                     }
                 }
             }
         }
         private void HandlePublisherPublication(PublicationEvent e)
         {
-            bool isNewTopic = CreateLocalPublisherInfo(e);
-            switch (configuration.routingPolicy)
+            lock (FIFOWaitQueue)
             {
-                case "flooding":
-                    EventRouting(e);
-                    break;
-                case "filter":
-                    if (parentBroker != null && isNewTopic)
-                    {
-                        Console.WriteLine("New publication topic detected! Sending advertisement for topic" + e.topic + "!");
-                        parentBroker.AdvertisePublisher(e.topic, configuration.processAddress, e.publisher, e.SequenceNumber);
-                    }
-                    EventRouting(e);
-                    break;
+                bool isNewTopic = CreateLocalPublisherInfo(e);
+                switch (configuration.routingPolicy)
+                {
+                    case "flooding":
+                        EventRouting(e);
+                        break;
+                    case "filter":
+                        if (isNewTopic)
+                        {
+                            PublisherInfo messagePublisher = SearchLocalPublication(e.publisher);
+                            Console.WriteLine("New publication topic detected! Sending advertisement for topic" + e.topic + "!");
+                            if (localPublisherFIFO.Find(x => x.publication_address.Equals(e.publisher)) == null)
+                            {
+                                localPublisherFIFO.Add(new PublisherInfo(e.topic, e.publisher));
+                            }
+                            foreach (NeighborForwardingFilter filter in neighborFilters)
+                            {
+                                if (filter.MatchTopic(e.topic))
+                                {
+                                    RemoteBroker filterBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), filter.neighborAddress);
+                                    filterBroker.SequenceUpdate(e.topic, configuration.processAddress, e.publisher, e.SequenceNumber);
+                                }
+                                else
+                                {
+                                    foreach (string publisherTopic in messagePublisher.topics)
+                                        if (filter.MatchTopic(publisherTopic) && !publisherTopic.Equals(e.topic))
+                                        {
+                                            Console.WriteLine("Found topic " + publisherTopic + " that needs seq number! Sending to " + filter.neighborAddress);
+                                            RemoteBroker filterBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), filter.neighborAddress);
+                                            filterBroker.SequenceUpdate(publisherTopic, configuration.processAddress, e.publisher, e.SequenceNumber);
+                                            break;
+                                        }
+                                }
+                            }
+                            if (parentBroker != null)
+                                parentBroker.AdvertisePublisher(e.topic, configuration.processAddress, e.publisher, e.SequenceNumber);
+                        }
+                        EventRouting(e);
+                        break;
+                }
             }
         }
         private void HandleSubAdvertisement(string topic, string lastHopAddress, string subscriberAddress)
         {
-            lock (neighborFilters)
+            lock (FIFOWaitQueue)
             {
+                Console.WriteLine("Got Sub advertisement from " + lastHopAddress);
                 //Received Subscriber interest in topic! Add topic to filter!
-                NeighborForwardingFilter filter = SearchFilters(lastHopAddress);
-                filter.AddInterestTopic(topic)/*, subscriberAddress)*/;
+                NeighborForwardingFilter lastHopFilter = SearchFilters(lastHopAddress);
+
+                //If NEW topic being added!
+                if(lastHopFilter.AddInterestTopic(topic)/*, subscriberAddress)*/)
+                {
+                    //Send sequence update to last Hop for all publishers of this topic!
+                    RemoteBroker lastHopBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), lastHopAddress);
+                    foreach (PublisherInfo pubInfo in publicationList)
+                    {
+                        //if publisher publishes topic and is directly connected (local).
+                        if (pubInfo.topics.Find(x => x.Equals(topic)) != null && localPublisherFIFO.Find(x => x.publication_address.Equals(pubInfo.publication_address)) != null)
+                        {
+                            Console.WriteLine("Sending seq update to " + lastHopAddress + " for publisher at " + pubInfo.publication_address);
+                            lastHopBroker.SequenceUpdate(topic, configuration.processAddress, pubInfo.publication_address, pubInfo.LastSeqNumber);
+                        }
+                    }
+                }
 
                 List<PublisherInfo> sentPublishers = new List<PublisherInfo>();
                 foreach (NeighborForwardingFilter neighborFilter in neighborFilters)
                 {
                     List<PublisherInfo> publishersTopic = neighborFilter.GetAllPublishersTopic(topic); //All publishers that publish topic
-                    if (publishersTopic.Any() && !neighborFilter.neighborAddress.Equals(lastHopAddress)) // If publishers for this topic are found in any link!
+                    // If publishers for this topic are found in link except for link with parent!
+                    if (publishersTopic.Any() && !neighborFilter.neighborAddress.Equals(lastHopAddress) && !neighborFilter.neighborAddress.Equals(configuration.parentBrokerAddress))
                     {
-                        //Send sequence update for all publishers of this topic!
-                        RemoteBroker lastHopBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), lastHopAddress);
-                        foreach (PublisherInfo pubInfo in publishersTopic)
-                        {
-                            if (!sentPublishers.Contains(pubInfo))
-                            {
-                                lastHopBroker.SequenceUpdate(topic, configuration.processAddress, pubInfo.publication_address, pubInfo.LastSeqNumber);
-                                sentPublishers.Add(pubInfo);
-                            }
-                        }
-                        //Send filter update to neighbor that knows publisher
+                        //Send filter update to neighbor that knows publisher for topic except parent broker
                         RemoteBroker filterBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), neighborFilter.neighborAddress);
                         filterBroker.FilterUpdate(topic, configuration.processAddress);
                     }
@@ -504,22 +585,31 @@ namespace SESDADBroker
         }
         private void HandleSeqUpdate(string topic, string lastHopAddress, string publisherAddress, int seqNum)
         {
-            lock (FIFOWaitQueue)
+            lock (neighborFilters)
             {
+                Console.WriteLine("Received Seq Update from " + lastHopAddress + " for publisher at " + publisherAddress);
+                //Update sequence Number on filter and local list of publishers.
                 NeighborForwardingFilter upStreamFilter = SearchFilters(lastHopAddress);
                 UpdateLocalPublisher(publisherAddress, topic, seqNum);
                 PublisherInfo pubInfo = upStreamFilter.AddPublisher(topic, publisherAddress, seqNum);
+
+                //Send sequence update to all interested in topics for this publisher!
                 foreach (NeighborForwardingFilter filter in neighborFilters)
                 {
-                    if (!filter.MatchTopic(topic) && !filter.neighborAddress.Equals(lastHopAddress)) // still has a link with interest except for the last hop
+                    foreach (string publisherTopic in pubInfo.topics)
                     {
-                        foreach (string t in filter.GetAllInterestTopics())
+                        // If any link, except for last hop, has interest in topic, send seq update for this publisher topic.
+                        if (filter.MatchTopic(publisherTopic) && !filter.neighborAddress.Equals(lastHopAddress))
                         {
-                            if (pubInfo.MatchTopic(t))
-                            {
-                                RemoteBroker filterBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), filter.neighborAddress);
-                                filterBroker.SequenceUpdate(topic, configuration.processAddress, publisherAddress, seqNum);
-                            }
+                            //foreach (string t in filter.GetAllInterestTopics())
+                            //{
+                            //    if (pubInfo.MatchTopic(t))
+                            //    {
+                            Console.WriteLine("Sending seq update to " + filter.neighborAddress);
+                            RemoteBroker filterBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), filter.neighborAddress);
+                            filterBroker.SequenceUpdate(topic, configuration.processAddress, publisherAddress, seqNum);
+                            //    }
+                            //}
                         }
                     }
                 }
@@ -528,10 +618,8 @@ namespace SESDADBroker
         private void HandleUnsubAdvertisement(string topic, string lastHopAddress, string subscriberAddress)
         {
             Console.WriteLine("Got unsub advertisement from " + lastHopAddress);
-            lock (subscriptionsList)
+            lock (FIFOWaitQueue)
             {
-                lock (neighborFilters)
-                {
                     //Received unsub advertisement! Remove subscription topic from filter
                     SearchFilters(lastHopAddress).RemoveSubscriberTopic(topic);
                     //Send to parent if parent is not last hop!
@@ -572,7 +660,6 @@ namespace SESDADBroker
                             }
                         }
                     }
-                }
             }
 
         }
@@ -609,15 +696,14 @@ namespace SESDADBroker
                     //Send Reverse Filter Update
                     RemoteBroker lastHopBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), lastHopAddress);
                     lastHopBroker.FilterUpdate(topic, configuration.processAddress);
-                    //Check each neighbor filter other than last hop for interest in topic
+                    //Check each neighbor filter other than last hop and parent_broker for interest in topic
                     foreach (NeighborForwardingFilter filter1 in neighborFilters)
                     {
-                        if (!filter1.neighborAddress.Equals(lastHopAddress) && filter1.MatchTopic(topic))
+                        if (!filter1.neighborAddress.Equals(lastHopAddress) && filter1.MatchTopic(topic) && !filter1.neighborAddress.Equals(configuration.parentBrokerAddress))
                         {
                             //Send Sequence update to filter broker
                             RemoteBroker filterBroker = (RemoteBroker)Activator.GetObject(typeof(RemoteBroker), lastHopAddress);
                             filterBroker.SequenceUpdate(topic, configuration.processAddress, publisherAddress, seqNum);
-
                         }
                     }
                 }
@@ -697,16 +783,18 @@ namespace SESDADBroker
             this.neighborAddress = neighborAddress;
         }
 
-        public void AddInterestTopic(string topic)/*, string subscriberAddress)*/
+        public bool AddInterestTopic(string topic)/*, string subscriberAddress)*/
         {
 
             if (interestTopics.ContainsKey(topic))
             {
                 interestTopics[topic]++;
+                return false;
             }
             else
             {
                 interestTopics.Add(new KeyValuePair<string, int>(topic, 1));
+                return true;
             }
             //SubscriptionInfo subInfo;
             //try {
@@ -838,6 +926,11 @@ namespace SESDADBroker
         //    throw new NotImplementedException("Subscriber " + subAddress + " not found on filter for " + neighborAddress);
         //}
 
+        /// <summary>
+        /// Checks if "topic" is in the list of interested topics for this filter!
+        /// </summary>
+        /// <param name="topic"></param>
+        /// <returns></returns>
         public bool MatchTopic(string topic)
         {
             foreach (KeyValuePair<string, int> entry in interestTopics)

@@ -127,6 +127,7 @@ namespace SESDAD
             StreamReader file = OpenConfigFile(filename);
             OrderMode order_mode = OrderMode.NoOrder;
             string routing_policy = "flooding";
+            string log_level = "full";
             while (true)
             {
                 string line = file.ReadLine();
@@ -197,12 +198,17 @@ namespace SESDAD
                         routing_policy = args[1];
                         break;
 
+                    case "LoggingLevel":
+                        log_level = args[1];
+                        break;
+
                 }
             }
             foreach (SESDADConfig config in configList)
             {
                 config.orderMode = order_mode;
                 config.routingPolicy = routing_policy;
+                config.loggingLevel = log_level;
             }
             file.Close();
         }

@@ -197,9 +197,6 @@ namespace SESDAD
         }
     }
 
-    /// <summary>
-    /// 
-    /// </summary>
     public class RemotePuppetSlave : MarshalByRefObject
     {
         public LogMessageDelegate OnLogMessage;
@@ -221,9 +218,6 @@ namespace SESDAD
         }
     }
 
-    /// <summary>
-    /// 
-    /// </summary>
     public class RemotePuppetMaster : MarshalByRefObject
     {
         public SESDADSlaveConfigurationDelegate slaveSignIn;
@@ -348,9 +342,6 @@ namespace SESDAD
         }
     }
 
-    /// <summary>
-    /// 
-    /// </summary>
     [Serializable]
     public class SESDADProcessConfig
     {
@@ -383,6 +374,7 @@ namespace SESDAD
     {
         public OrderMode orderMode;
         public string routingPolicy;
+        public string loggingLevel;
         public string parentBrokerAddress;
         public List<string> childrenBrokerAddresses = new List<string>();
     }
@@ -393,6 +385,7 @@ namespace SESDAD
         public bool isDone = false;
         public OrderMode orderMode;
         public string routingPolicy;
+        public string loggingLevel;
         public string siteName;
         public List<string> childrenSiteNames = new List<string>();
         public List<SESDADProcessConfig> processConfigList = new List<SESDADProcessConfig>();
@@ -417,15 +410,6 @@ namespace SESDAD
             throw new NotImplementedException();
         }
     }
-
-    //public class SESDadQueue : MarshalByRefObject
-    //{
-    //    private Queue<Event> eventQueue;
-    //    public SESDadQueue()
-    //    {
-    //        eventQueue = new Queue<Event>();
-    //    }
-    //}
 
     [Serializable]
     public enum EventType { Publication, Subscription, Unsubscription}

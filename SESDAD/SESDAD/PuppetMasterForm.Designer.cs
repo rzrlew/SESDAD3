@@ -69,6 +69,7 @@
             this.single_command_box.Name = "single_command_box";
             this.single_command_box.Size = new System.Drawing.Size(286, 20);
             this.single_command_box.TabIndex = 2;
+            this.single_command_box.PreviewKeyDown += new System.Windows.Forms.PreviewKeyDownEventHandler(this.single_command_box_PreviewKeyDown);
             // 
             // single_command_button
             // 
@@ -93,6 +94,7 @@
             // 
             // script_text_box
             // 
+            this.script_text_box.AcceptsReturn = true;
             this.script_text_box.Location = new System.Drawing.Point(6, 19);
             this.script_text_box.Multiline = true;
             this.script_text_box.Name = "script_text_box";

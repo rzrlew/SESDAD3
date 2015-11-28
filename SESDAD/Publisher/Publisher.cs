@@ -56,7 +56,7 @@ namespace SESDADPublisher
                 Console.WriteLine("Sending " + numEvents + " events on topic " + topic);
                 for (int i = 0; i < numEvents; i++)
                 {
-                    Console.WriteLine("Publishing event on topic '" + topic + "'");
+                    Console.WriteLine("Publishing event on topic '" + topic + "' sequence: " + SequenceNumber);
                     PublicationEvent e = new PublicationEvent(SequenceNumber.ToString(), topic, address);
                     PublishEvent(e);
                     Thread.Sleep(interval);

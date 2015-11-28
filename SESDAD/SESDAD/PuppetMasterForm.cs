@@ -63,5 +63,13 @@ namespace SESDAD
         {
 
         }
+
+        private void single_command_box_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
+        {
+            if (e.KeyCode.Equals(Keys.Enter))
+            {
+                new Thread(() => OnSingleCommand(single_command_box.Text)).Start();
+            }
+        }
     }
 }

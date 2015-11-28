@@ -79,10 +79,10 @@ namespace SESDADSubscriber
                     //If topic is NOT susbscribed
                     if (topicList.Find(x => x.Equals(topic) ? true : false) == null)
                     {
-                        topicList.Add(topic);
                         Console.WriteLine("Subscribing events on topic '" + topic + "' with broker at " + brokerAddress);
                         SubscriptionEvent subEvent = new SubscriptionEvent(topic, address);
                         serviceBroker.Subscribe(subEvent);
+                        topicList.Add(topic);
                         remotePuppetMaster.LogMessage("[" + name + "] Broker confirmed subscription of topic '" + topic + "'");
                     } 
                 }

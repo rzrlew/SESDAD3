@@ -49,7 +49,7 @@ namespace SESDADSubscriber
 
         private string SendStatus()
         {
-            string msg = "[Subscriber - " + name + "] Broker: " + serviceBroker.name;
+            string msg = "[Status - " + name + "] Broker: " + serviceBroker.name;
             msg += "||Topics:{";
             bool isFirstTopic = true;
             foreach (string topic in topicList)

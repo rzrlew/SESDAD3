@@ -65,7 +65,7 @@ namespace SESDADPublisher
         }
         private string SendStatus()
         {
-            string msg = "[Publisher - " + new Uri(this.address).LocalPath.Split('/')[1] + "] SeqNum: " + SequenceNumber;
+            string msg = "[Status - " + new Uri(this.address).LocalPath.Split('/')[1] + "] SeqNum: " + SequenceNumber;
             msg += " || Broker at:" + brokerAddress;
             return msg;
         }

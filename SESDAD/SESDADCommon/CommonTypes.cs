@@ -14,6 +14,7 @@ namespace SESDAD
     public delegate void PublicationRequestDelegate(PublicationEvent e);
     public delegate void SubsRequestDelegate(string topic);
     public delegate void PubSubEventDelegate(string topic, string address);
+    public delegate void UpdateFilterEventDelegate(string topic, string lasHopAddress, bool toAdd);
     public delegate void SubscriptionAdvertisementDelegate(string topic, string lastHopAddress, string subscriberAddress);
     public delegate void PubAdvertisementEventDelegate(string topic, string lastHopAddress, string publisherAddress, int seqNum);
     public delegate void PublicationEventDelegate(string topic, int numEvents, int interval);
@@ -54,7 +55,7 @@ namespace SESDAD
         public PubAdvertisementEventDelegate OnAdvertisePublisher;
         public SubscriptionAdvertisementDelegate OnAdvertiseSubscriber;
         public SubscriptionAdvertisementDelegate OnAdvertiseUnsubscriber;
-        public PubSubEventDelegate OnFilterUpdate;
+        public UpdateFilterEventDelegate OnFilterUpdate;
         public PubAdvertisementEventDelegate OnSequenceUpdate;
         public StatusRequestDelegate OnStatusRequest;
         public PublicationRequestDelegate OnPublication;
@@ -119,9 +120,9 @@ namespace SESDAD
         {
             OnAdvertiseUnsubscriber(topic, lastHopAddress, subscriberAddress);
         }
-        public void FilterUpdate(string topic, string lastHopAddress)
+        public void FilterUpdate(string topic, string lastHopAddress, bool toAdd)
         {
-            OnFilterUpdate(topic, lastHopAddress);
+            OnFilterUpdate(topic, lastHopAddress, toAdd);
         }
         public void SequenceUpdate(string topic, string lastHopAddress, string publisherAddress, int seqNum)
         {

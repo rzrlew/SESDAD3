@@ -36,12 +36,11 @@ namespace SESDAD
             {
                 throw new NotImplementedException("Must indicate True or False and puppetmaster address in arguments!");
             }
-            Console.WriteLine(bool.FalseString);
             if (bool.Parse(args[0]))
             {
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                PuppetMaster puppetMaster = new PuppetMaster();
+                PuppetMaster puppetMaster = new PuppetMaster(new Uri(args[1]).Port);
                 Process.Start(TestConstants.puppetSlavePath, args[1]);
                 Application.Run(puppetMaster.form);
             }
@@ -51,8 +50,9 @@ namespace SESDAD
             }
         }
 
-        public PuppetMaster()
+        public PuppetMaster(int port)
         {
+            puppetMasterPort = port;      
             form = new PuppetMasterForm();
             form.OnBajorasPrint += new PuppetMasterFormEventDelegate(ShowMessage);
             form.OnSingleCommand = new PuppetMasterFormEventDelegate(RunSingleCommand);
